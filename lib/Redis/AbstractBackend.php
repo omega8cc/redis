@@ -44,12 +44,20 @@ abstract class Redis_AbstractBackend
             }
         }
 
-        if (empty($ret) && isset($_SERVER['HTTP_HOST'])) {
+        if (empty($ret)) {
             // Provide a fallback for multisite. This is on purpose not inside the
             // getPrefixForBin() function in order to decouple the unified prefix
             // variable logic and custom module related security logic, that is not
-            // necessary for all backends.
-            $ret = $_SERVER['HTTP_HOST'] . '_';
+            // necessary for all backends. We can't just use HTTP_HOST, as multiple
+            // hosts might be using the same database. Or, more commonly, a site
+            // might not be a multisite at all, but might be using Drush leading to
+            // a separate HTTP_HOST of 'default'. Likewise, we can't rely on
+            // conf_path(), as settings.php might be modifying what database to
+            // connect to. To mirror what core does with database caching we use
+            // the DB credentials to inform our cache key.
+            $dbInfo = Database::getConnectionInfo();
+            $active = $dbInfo['default'];
+            $ret = md5($active['host'] . $active['database'] . $active['prefix']['default']);
         }
 
         return $ret;

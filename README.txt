@@ -31,7 +31,7 @@ Use Redis 2.1.0 or later if you can! I warned you.
 Notes
 -----
 
-Both backends provide the exact same functionnalities. The major difference is
+Both backends provide the exact same functionalities. The major difference is
 because PhpRedis uses a PHP extension, and not PHP code, it more performant.
 
 Difference is not that visible, it's really a few millisec on my testing box.
@@ -83,7 +83,7 @@ Add into your settings.php file:
 
 You can replace 'PhpRedis' with 'Predis', depending on the library you chose. 
 
-Note that this is optionnal but recommended. If you don't set this variable the
+Note that this is optional but recommended. If you don't set this variable the
 module will proceed to class lookups and attempt to choose the best client
 available, having always a preference for the Predis one.
 
@@ -171,7 +171,7 @@ that will be the default prefix for all cache bins:
 
   $conf['cache_prefix'] = 'mysite_';
 
-Alternatively, to provide the same functionnality, you can provide the variable
+Alternatively, to provide the same functionality, you can provide the variable
 as an array:
 
   $conf['cache_prefix']['default'] = 'mysite_';
@@ -199,9 +199,10 @@ Here is a complex sample:
   $conf['cache_prefix']['cache_menu'] = 'menumysite_';
 
 Note that if you don't specify the default behavior, the Redis module will
-attempt to use the HTTP_HOST variable in order to provide a multisite safe
-default behavior. Notice that this is not failsafe, in such environment you
-are strongly advised to set at least an explicit default prefix.
+attempt to use the a hash of the database credentials in order to provide a
+multisite safe default behavior. Notice that this is not failsafe. In such
+environments you are strongly advised to set at least an explicit default
+prefix.
 
 Note that this last notice is Redis only specific, because per default Redis
 server will not namespace data, thus sharing an instance for multiple sites

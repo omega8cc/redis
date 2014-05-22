@@ -2,7 +2,8 @@
 
 /**
  * @file
- * Mainly a copy of Drupal's path.inc except the path lookup function.
+ * Drupal default includes/path.inc file copy which only differs in the
+ * drupal_lookup_path() function, which is the only performance critical.
  */
 
 /**
@@ -41,7 +42,7 @@ function drupal_path_initialize() {
 function drupal_lookup_path($action, $path = '', $path_language = NULL) {
   global $language_url;
 
-  static $hashLookup, $cache = array();
+  static $hashLookup, $cache, $denyAdmin;
 
   if (null === $hashLookup) {
     try {
@@ -50,6 +51,14 @@ function drupal_lookup_path($action, $path = '', $path_language = NULL) {
     } catch (Exception $e) {
       $hashLookup = new Redis_Path_NullHashLookup();
     }
+  }
+
+  if (null === $cache) {
+    $cache = array('whitelist' => variable_get('path_alias_whitelist'));
+    if (null === $cache['whitelist']) {
+      $cache['whitelist'] = drupal_path_alias_whitelist_rebuild();
+    }
+    $denyAdmin = (bool)variable_get('path_alias_admin_blacklist', true);
   }
 
   // If no language is explicitly specified we default to the current URL
@@ -68,27 +77,44 @@ function drupal_lookup_path($action, $path = '', $path_language = NULL) {
 
   switch ($action) {
 
+    case 'wipe':
+      $cache = array();
+      $cache['whitelist'] = drupal_path_alias_whitelist_rebuild();
+      break;
+
     case 'alias':
-      if (!$ret = $hashLookup->lookupAlias($path, $path_language)) {
+      // Check the path whitelist, if the top_level part before the first /
+      // is not in the list, then there is no need to do anything further,
+      // it is not in the database.
+      if (!isset($cache['whitelist'][strtok($path, '/')])) {
+        return false;
+      }
+      // Deny admin paths.
+      if ($denyAdmin && path_is_admin($path)) {
+        return false;
+      }
+
+      $ret = $hashLookup->lookupAlias($path, $path_language);
+      if (null === $ret) {
         // Original Drupal algorithm
         if ($path_language == LANGUAGE_NONE) {
-          $ret = db_query("SELECT source FROM {url_alias} WHERE source = :source AND language = :language ORDER BY pid DESC LIMIT 1", array(
+          $ret = db_query("SELECT alias FROM {url_alias} WHERE source = :source AND language = :language ORDER BY pid DESC LIMIT 1", array(
             ':source' => $path,
             ':language' => $path_language,
           ))->fetchField();
         } else if ($path_language > LANGUAGE_NONE) {
-          $ret = db_query("SELECT source FROM {url_alias} WHERE source = :source AND language IN (:language) ORDER BY language DESC, pid DESC LIMIT 1", array(
+          $ret = db_query("SELECT alias FROM {url_alias} WHERE source = :source AND language IN (:language) ORDER BY language DESC, pid DESC LIMIT 1", array(
             ':source' => $path,
             ':language' => array($path_language, LANGUAGE_NONE),
           ))->fetchField();
         } else {
-          $ret = db_query("SELECT source FROM {url_alias} WHERE source = :source AND language IN (:language) ORDER BY language ASC, pid DESC LIMIT 1", array(
+          $ret = db_query("SELECT alias FROM {url_alias} WHERE source = :source AND language IN (:language) ORDER BY language ASC, pid DESC LIMIT 1", array(
             ':source' => $path,
             ':language' => array($path_language, LANGUAGE_NONE),
           ))->fetchField();
         }
         // Getting here with a value means we need to cache it
-        if (!$ret) {
+        if (empty($ret)) {
           $ret = false;
         }
         $hashLookup->saveAlias($path, $ret, $path_language);
@@ -98,7 +124,14 @@ function drupal_lookup_path($action, $path = '', $path_language = NULL) {
       break;
 
     case 'source':
-      if (!$ret = $hashLookup->lookupSource($path, $path_language)) {
+      // Even thought given entry is an alias, if it conflicts with an
+      // existing admin path just deny any lookup.
+      if ($denyAdmin && path_is_admin($path)) {
+        return false;
+      }
+
+      $ret = $hashLookup->lookupSource($path, $path_language);
+      if (null === $ret) {
         // Original Drupal algorithm
         if ($path_language == LANGUAGE_NONE) {
           $ret = db_query("SELECT source FROM {url_alias} WHERE alias = :alias AND language = :language ORDER BY pid DESC LIMIT 1", array(
@@ -117,7 +150,7 @@ function drupal_lookup_path($action, $path = '', $path_language = NULL) {
           ))->fetchField();
         }
         // Getting here with a value means we need to cache it
-        if (!$ret) {
+        if (empty($ret)) {
           $ret = false;
         }
         $hashLookup->saveAlias($ret, $path, $path_language);
@@ -138,7 +171,22 @@ function drupal_lookup_path($action, $path = '', $path_language = NULL) {
  * subsequent requests, and load them in a single query during
  * drupal_lookup_path().
  */
-function drupal_cache_system_paths() {}
+function drupal_cache_system_paths() {
+  // Check if the system paths for this page were loaded from cache in this
+  // request to avoid writing to cache on every request.
+  $cache = &drupal_static('drupal_lookup_path', array());
+  if (empty($cache['system_paths']) && !empty($cache['map'])) {
+    // Generate a cache ID (cid) specifically for this page.
+    $cid = current_path();
+    // The static $map array used by drupal_lookup_path() includes all
+    // system paths for the page request.
+    if ($paths = current($cache['map'])) {
+      $data = array_keys($paths);
+      $expire = REQUEST_TIME + (60 * 60 * 24);
+      cache_set($cid, $data, 'cache_path', $expire);
+    }
+  }
+}
 
 /**
  * Given an internal Drupal path, return the alias set by the administrator.
@@ -287,7 +335,26 @@ function current_path() {
  * @return
  *   An array containing a white list of path aliases.
  */
-function drupal_path_alias_whitelist_rebuild($source = NULL) {}
+function drupal_path_alias_whitelist_rebuild($source = NULL) {
+  // When paths are inserted, only rebuild the whitelist if the system path
+  // has a top level component which is not already in the whitelist.
+  if (!empty($source)) {
+    $whitelist = variable_get('path_alias_whitelist', NULL);
+    if (isset($whitelist[strtok($source, '/')])) {
+      return $whitelist;
+    }
+  }
+  // For each alias in the database, get the top level component of the system
+  // path it corresponds to. This is the portion of the path before the first
+  // '/', if present, otherwise the whole path itself.
+  $whitelist = array();
+  $result = db_query("SELECT DISTINCT SUBSTRING_INDEX(source, '/', 1) AS path FROM {url_alias}");
+  foreach ($result as $row) {
+    $whitelist[$row->path] = TRUE;
+  }
+  variable_set('path_alias_whitelist', $whitelist);
+  return $whitelist;
+}
 
 /**
  * Fetches a specific URL alias from the database.
@@ -484,4 +551,8 @@ function drupal_valid_path($path, $dynamic_allowed = FALSE) {
  * @param $source
  *   An optional system path for which an alias is being changed.
  */
-function drupal_clear_path_cache($source = NULL) {}
+function drupal_clear_path_cache($source = NULL) {
+  // Clear the drupal_lookup_path() static cache.
+  drupal_static_reset('drupal_lookup_path');
+  drupal_path_alias_whitelist_rebuild($source);
+}

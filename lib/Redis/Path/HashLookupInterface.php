@@ -33,11 +33,6 @@
 interface Redis_Path_HashLookupInterface
 {
     /**
-     * Values separator for hash values
-     */
-    const SEPARATOR = '#';
-
-    /**
      * Alias HASH key prefix
      */
     const KEY_ALIAS = 'path:a';
@@ -46,6 +41,16 @@ interface Redis_Path_HashLookupInterface
      * Source HASH key prefix
      */
     const KEY_SOURCE = 'path:s';
+
+    /**
+     * Null value (not existing yet cached value)
+     */
+    const VALUE_NULL = '!';
+
+    /**
+     * Values separator for hash values
+     */
+    const VALUE_SEPARATOR = '#';
 
     /**
      * Alias is being inserted with the given source
@@ -79,6 +84,11 @@ interface Redis_Path_HashLookupInterface
      *
      * @param string $source
      * @param string $language
+     *
+     * @return string|null|false
+     *   - The string value if found
+     *   - null if not found
+     *   - false if set as non existing
      */
     public function lookupAlias($source, $language = null);
 
@@ -89,6 +99,11 @@ interface Redis_Path_HashLookupInterface
      *
      * @param string $alias
      * @param string $language
+     *
+     * @return string|null|false
+     *   - The string value if found
+     *   - null if not found
+     *   - false if set as non existing
      */
     public function lookupSource($alias, $language = null);
 }

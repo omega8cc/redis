@@ -2,6 +2,10 @@
 
 /**
  * PhpRedis implementation.
+ *
+ * @todo
+ *   Set high expire value to the hash for rotation when memory is empty
+ *   React upon cache clear all and rebuild path list?
  */
 class Redis_Path_PhpRedis extends Redis_Path_AbstractHashLookup
 {
@@ -12,12 +16,14 @@ class Redis_Path_PhpRedis extends Redis_Path_AbstractHashLookup
         $value = $client->hget($key, $hkey);
 
         if ($value) {
-            $existing = explode(self::SEPARATOR, $value);
+            $existing = explode(self::VALUE_SEPARATOR, $value);
             if (!in_array($hvalue, $existing)) {
-                $value .= self::SEPARATOR . $hvalue;
+                $value .= self::VALUE_SEPARATOR . $hvalue;
             } else { // Do nothing on empty value
               $value = null;
             }
+        } else if (empty($value)) {
+            $value = self::VALUE_NULL;
         } else {
             $value = $hvalue;
         }
@@ -34,8 +40,12 @@ class Redis_Path_PhpRedis extends Redis_Path_AbstractHashLookup
             $language = LANGUAGE_NONE;
         }
 
-        $this->saveInHash($this->getKey(self::KEY_ALIAS, $language), $source, $alias);
-        $this->saveInHash($this->getKey(self::KEY_SOURCE, $language), $alias, $source);
+        if (!empty($source)) {
+            $this->saveInHash($this->getKey(self::KEY_ALIAS, $language), $source, $alias);
+        }
+        if (!empty($alias)) {
+            $this->saveInHash($this->getKey(self::KEY_SOURCE, $language), $alias, $source);
+        }
     }
 
     protected function deleteInHash($key, $hkey, $hvalue)
@@ -45,13 +55,13 @@ class Redis_Path_PhpRedis extends Redis_Path_AbstractHashLookup
         $value = $client->hget($key, $hkey);
 
         if ($value) {
-            $existing = explode(self::SEPARATOR, $value);
+            $existing = explode(self::VALUE_SEPARATOR, $value);
             if ($index = array_search($hvalue, $existing)) {
                 if (1 === count($existing)) {
                     $client->hdel($key, $hkey);
                 } else {
                     unset($existing[$index]);
-                    $client->hset($key, $hkey, implode(self::SEPARATOR, $existing));
+                    $client->hset($key, $hkey, implode(self::VALUE_SEPARATOR, $existing));
                 }
             }
         }
@@ -90,7 +100,14 @@ class Redis_Path_PhpRedis extends Redis_Path_AbstractHashLookup
             $ret = $client->hget($this->getKey($keyPrefix, LANGUAGE_NONE), $hkey);
         }
 
-        $existing = explode('#', $ret);
+        if ($ret === self::VALUE_NULL) {
+            return false; // Needs conversion
+        }
+        if (empty($ret)) {
+            return null; // Value not found
+        }
+
+        $existing = explode(self::VALUE_SEPARATOR, $ret);
 
         return reset($existing);
     }

@@ -16,7 +16,7 @@ abstract class Redis_AbstractBackend
         if (isset($GLOBALS['drupal_test_info']) && !empty($test_info['test_run_id'])) {
             $ret = $test_info['test_run_id'];
         } else {
-            $prefixes = variable_get('cache_prefix', '');
+            $prefixes = variable_get('cache_prefix', null);
 
             if (is_string($prefixes)) {
                 // Variable can be a string which then considered as a default

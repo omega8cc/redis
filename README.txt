@@ -53,11 +53,13 @@ Quick setup
 -----------
 
 Here is a simple yet working easy way to setup the module.
-This method will Drupal to use Redis for all caches and locks.
+This method will Drupal to use Redis for all caches and locks
+and path alias cache replacement.
 
   $conf['redis_client_interface'] = 'PhpRedis'; // Can be "Predis".
   $conf['redis_client_host']      = '1.2.3.4';  // Your Redis instance hostname.
   $conf['lock_inc']               = 'sites/all/modules/redis/redis.lock.inc';
+  $conf['path_inc']               = 'sites/all/modules/redis/redis.path.inc';
   $conf['cache_backends'][]       = 'sites/all/modules/redis/redis.autoload.inc';
   $conf['cache_default_class']    = 'Redis_Cache';
 
@@ -105,6 +107,21 @@ Tell Drupal to use the lock backend
 Usual lock backend override, update you settings.php file as this:
 
   $conf['lock_inc'] = 'sites/all/modules/redis/redis.lock.inc';
+
+Tell Drupal to use the path alias backend
+-----------------------------------------
+
+Usual path backend override, update you settings.php file as this:
+
+  $conf['path_inc'] = 'sites/all/modules/redis/redis.path.inc';
+
+Notice that there is an additional variable for path handling that is set
+per default which will ignore any path that is an admin path, gaining a few
+SQL queries. If you want to be able to set aliases on admin path and restore
+an almost default Drupal core behavior, you should add this line into your
+settings.php file:
+
+  $conf['path_alias_admin_blacklist'] = FALSE;
 
 Drupal 6 and lock backend
 -------------------------

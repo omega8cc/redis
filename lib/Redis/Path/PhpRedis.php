@@ -15,14 +15,21 @@ class Redis_Path_PhpRedis extends Redis_Path_AbstractHashLookup
 
         $value = $client->hget($key, $hkey);
 
+        if ($value === self::VALUE_NULL) { // Remove any null values
+            $value = null;
+        }
         if ($value) {
             $existing = explode(self::VALUE_SEPARATOR, $value);
             if (!in_array($hvalue, $existing)) {
-                $value .= self::VALUE_SEPARATOR . $hvalue;
+                // Prepend the most recent path to ensure it always be
+                // first fetched one
+                // @todo Ensure in case of update that its position does
+                // not changes (pid ordering in Drupal core)
+                $value = $hvalue . self::VALUE_SEPARATOR . $value;
             } else { // Do nothing on empty value
               $value = null;
             }
-        } else if (empty($value)) {
+        } else if (empty($hvalue)) {
             $value = self::VALUE_NULL;
         } else {
             $value = $hvalue;
@@ -91,16 +98,22 @@ class Redis_Path_PhpRedis extends Redis_Path_AbstractHashLookup
         if (null === $language) {
             $language = LANGUAGE_NONE;
             $doNoneLookup = false;
+        } else if (LANGUAGE_NONE === $language) {
+            $doNoneLookup = false;
         } else {
             $doNoneLookup = true;
         }
 
         $ret = $client->hget($this->getKey($keyPrefix, $language), $hkey);
-        if (!$ret && $doNoneLookup) {
+        if ($doNoneLookup && (!$ret || self::VALUE_NULL === $ret)) {
+            $previous = $ret;
             $ret = $client->hget($this->getKey($keyPrefix, LANGUAGE_NONE), $hkey);
+            if (!$ret && $previous) { // Restore null placeholder
+                $ret = $previous;
+            }
         }
 
-        if ($ret === self::VALUE_NULL) {
+        if (self::VALUE_NULL === $ret) {
             return false; // Needs conversion
         }
         if (empty($ret)) {

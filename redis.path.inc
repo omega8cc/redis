@@ -2,9 +2,30 @@
 
 /**
  * @file
- * Drupal default includes/path.inc file copy which only differs in the
- * drupal_lookup_path() function, which is the only performance critical.
+ * Drupal default includes/path.inc file copy which only differs in:
+ *  - drupal_lookup_path() which is the only performance critical.
+ *  - path_*() functions for synchronization.
  */
+
+/**
+ * Get Redis path lookup backend.
+ *
+ * @return Redis_Path_HashLookupInterface
+ */
+function redis_path_backend_get() {
+  static $hashLookup;
+
+  if (null === $hashLookup) {
+    try {
+      $className = Redis_Client::getClass(Redis_Client::REDIS_IMPL_PATH);
+      $hashLookup = new $className();
+    } catch (Exception $e) {
+      $hashLookup = new Redis_Path_NullHashLookup();
+    }
+  }
+
+  return $hashLookup;
+}
 
 /**
  * Initialize the $_GET['q'] variable to the proper normal path.
@@ -42,16 +63,7 @@ function drupal_path_initialize() {
 function drupal_lookup_path($action, $path = '', $path_language = NULL) {
   global $language_url;
 
-  static $hashLookup, $cache, $denyAdmin;
-
-  if (null === $hashLookup) {
-    try {
-      $className = Redis_Client::getClass(Redis_Client::REDIS_IMPL_PATH);
-      $hashLookup = new $className();
-    } catch (Exception $e) {
-      $hashLookup = new Redis_Path_NullHashLookup();
-    }
-  }
+  static $cache, $denyAdmin;
 
   if (null === $cache) {
     $cache = array('whitelist' => variable_get('path_alias_whitelist'));
@@ -69,11 +81,12 @@ function drupal_lookup_path($action, $path = '', $path_language = NULL) {
     $path_language = LANGUAGE_NONE;
   }
 
-  if (isset($cache[$path_language][$action][$path])) {
+  if (!empty($path) && isset($cache[$path_language][$action][$path])) {
     return $cache[$path_language][$action][$path];
   }
 
   $ret = null;
+  $hashLookup = redis_path_backend_get();
 
   switch ($action) {
 
@@ -83,6 +96,9 @@ function drupal_lookup_path($action, $path = '', $path_language = NULL) {
       break;
 
     case 'alias':
+      if (empty($path)) {
+        return false;
+      }
       // Check the path whitelist, if the top_level part before the first /
       // is not in the list, then there is no need to do anything further,
       // it is not in the database.
@@ -96,22 +112,25 @@ function drupal_lookup_path($action, $path = '', $path_language = NULL) {
 
       $ret = $hashLookup->lookupAlias($path, $path_language);
       if (null === $ret) {
-        // Original Drupal algorithm
+        // Original Drupal algorithm.
+        // This will also update the $path_language variable so Redis will store
+        // the right language (keeps track of LANGUAGE_NONE or specific language
+        // so that default fallback behavior is the same that core).
         if ($path_language == LANGUAGE_NONE) {
-          $ret = db_query("SELECT alias FROM {url_alias} WHERE source = :source AND language = :language ORDER BY pid DESC LIMIT 1", array(
+          list ($ret, $path_language) = db_query("SELECT alias, language FROM {url_alias} WHERE source = :source AND language = :language ORDER BY pid DESC LIMIT 1", array(
             ':source' => $path,
             ':language' => $path_language,
-          ))->fetchField();
+          ))->fetch(PDO::FETCH_NUM);
         } else if ($path_language > LANGUAGE_NONE) {
-          $ret = db_query("SELECT alias FROM {url_alias} WHERE source = :source AND language IN (:language) ORDER BY language DESC, pid DESC LIMIT 1", array(
+          list ($ret, $path_language) = db_query("SELECT alias, language FROM {url_alias} WHERE source = :source AND language IN (:language) ORDER BY language DESC, pid DESC LIMIT 1", array(
             ':source' => $path,
             ':language' => array($path_language, LANGUAGE_NONE),
-          ))->fetchField();
+          ))->fetch(PDO::FETCH_NUM);
         } else {
-          $ret = db_query("SELECT alias FROM {url_alias} WHERE source = :source AND language IN (:language) ORDER BY language ASC, pid DESC LIMIT 1", array(
+          list ($ret, $path_language) = db_query("SELECT alias, language FROM {url_alias} WHERE source = :source AND language IN (:language) ORDER BY language ASC, pid DESC LIMIT 1", array(
             ':source' => $path,
             ':language' => array($path_language, LANGUAGE_NONE),
-          ))->fetchField();
+          ))->fetch(PDO::FETCH_NUM);
         }
         // Getting here with a value means we need to cache it
         if (empty($ret)) {
@@ -124,6 +143,9 @@ function drupal_lookup_path($action, $path = '', $path_language = NULL) {
       break;
 
     case 'source':
+      if (empty($path)) {
+        return false;
+      }
       // Even thought given entry is an alias, if it conflicts with an
       // existing admin path just deny any lookup.
       if ($denyAdmin && path_is_admin($path)) {
@@ -132,22 +154,25 @@ function drupal_lookup_path($action, $path = '', $path_language = NULL) {
 
       $ret = $hashLookup->lookupSource($path, $path_language);
       if (null === $ret) {
-        // Original Drupal algorithm
+        // Original Drupal algorithm.
+        // This will also update the $path_language variable so Redis will store
+        // the right language (keeps track of LANGUAGE_NONE or specific language
+        // so that default fallback behavior is the same that core).
         if ($path_language == LANGUAGE_NONE) {
-          $ret = db_query("SELECT source FROM {url_alias} WHERE alias = :alias AND language = :language ORDER BY pid DESC LIMIT 1", array(
+          list ($ret, $path_language) = db_query("SELECT source, language FROM {url_alias} WHERE alias = :alias AND language = :language ORDER BY pid DESC LIMIT 1", array(
             ':alias' => $path,
             ':language' => array($path_language, LANGUAGE_NONE),
-          ))->fetchField();
+          ))->fetch(PDO::FETCH_NUM);
         } else if ($path_language > LANGUAGE_NONE) {
-          $ret = db_query("SELECT source FROM {url_alias} WHERE alias = :alias AND language IN (:language) ORDER BY language DESC, pid DESC LIMIT 1", array(
+          list ($ret, $path_language) = db_query("SELECT source, language FROM {url_alias} WHERE alias = :alias AND language IN (:language) ORDER BY language DESC, pid DESC LIMIT 1", array(
             ':alias' => $path,
             ':language' => array($path_language, LANGUAGE_NONE),
-          ))->fetchField();
+          ))->fetch(PDO::FETCH_NUM);
         } else {
-          $ret = db_query("SELECT source FROM {url_alias} WHERE alias = :alias AND language IN (:language) ORDER BY language ASC, pid DESC LIMIT 1", array(
+          list ($ret, $path_language) = db_query("SELECT source, language FROM {url_alias} WHERE alias = :alias AND language IN (:language) ORDER BY language ASC, pid DESC LIMIT 1", array(
             ':alias' => $path,
             ':language' => array($path_language, LANGUAGE_NONE),
-          ))->fetchField();
+          ))->fetch(PDO::FETCH_NUM);
         }
         // Getting here with a value means we need to cache it
         if (empty($ret)) {
@@ -417,6 +442,10 @@ function path_save(&$path) {
     drupal_write_record('url_alias', $path, array('pid'));
     module_invoke_all('path_update', $path);
   }
+  if ($path['original']) {
+    redis_path_backend_get()->deleteAlias($path['original']['source'], $path['original']['alias'], $path['original']['language']);
+  }
+  redis_path_backend_get()->saveAlias($path['source'], $path['alias'], $path['language']);
 
   // Clear internal properties.
   unset($path['original']);
@@ -442,6 +471,7 @@ function path_delete($criteria) {
   }
   $query->execute();
   module_invoke_all('path_delete', $path);
+  redis_path_backend_get()->deleteAlias($path['source'], $path['alias'], $path['language']);
   drupal_clear_path_cache($path['source']);
 }
 

@@ -10,13 +10,13 @@ Predis
 ------
 
 This implementation uses the Predis PHP library. It is compatible PHP 5.3
-only, and need Redis >= 2.1.0 for using the WATCH command.
+only.
 
 PhpRedis
 --------
 
 This implementation uses the PhpRedis PHP extention. In order to use it, you
-will need to compile the extension yourself.
+probably will need to compile the extension yourself.
 
 Redis version
 -------------
@@ -26,7 +26,11 @@ WATCH command, it is actually there only since version 2.1.0. If you use
 the it, it will just pass silently and work gracefully, but lock exclusive
 mutex is exposed to race conditions.
 
-Use Redis 2.1.0 or later if you can! I warned you.
+Please use Redis 2.4.0 or later if you can. I won't maintain any bug for
+Redis versions prior to 2.4.0.
+
+If you can't upgrade you Redis server, please use an older version of this
+module (prior to 7.x-2.6).
 
 Notes
 -----

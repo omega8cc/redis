@@ -32,7 +32,7 @@ abstract class Redis_AbstractBackend
       if (null === self::$globalPrefix) {
             $dbInfo = Database::getConnectionInfo();
             $active = $dbInfo['default'];
-            $ret = md5($active['host'] . $active['database'] . $active['prefix']['default']);
+            self::$globalPrefix = md5($active['host'] . $active['database'] . $active['prefix']['default']);
         }
 
         return self::$globalPrefix;

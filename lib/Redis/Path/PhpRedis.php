@@ -108,7 +108,9 @@ class Redis_Path_PhpRedis extends Redis_Path_AbstractHashLookup
         if ($doNoneLookup && (!$ret || self::VALUE_NULL === $ret)) {
             $previous = $ret;
             $ret = $client->hget($this->getKey($keyPrefix, LANGUAGE_NONE), $hkey);
-            if (!$ret && $previous) { // Restore null placeholder
+            if (!$ret && $previous) {
+                // Restore null placeholder else we loose conversion to false
+                // and drupal_lookup_path() would attempt saving it once again
                 $ret = $previous;
             }
         }

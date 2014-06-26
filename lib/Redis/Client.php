@@ -46,6 +46,11 @@ class Redis_Client {
   const REDIS_IMPL_LOCK = 'Redis_Lock_Backend_';
 
   /**
+   * Cache implementation namespace.
+   */
+  const REDIS_IMPL_QUEUE = 'Redis_Queue_';
+
+  /**
    * Session implementation namespace.
    */
   const REDIS_IMPL_SESSION = 'Redis_Session_Backend_';
@@ -142,7 +147,7 @@ class Redis_Client {
   }
 
   /**
-   * Get client singleton. 
+   * Get client singleton.
    */
   public static function getClient() {
     if (!isset(self::$_client)) {

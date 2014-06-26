@@ -9,3 +9,4 @@ files[] = tests/admin_variables.test
 files[] = tests/cache_fixes.test
 files[] = tests/cache_flush.test
 files[] = tests/lock.test
+files[] = tests/queue.test

@@ -21,6 +21,11 @@ class Redis_Client {
   const REDIS_DEFAULT_PORT = 6379;
 
   /**
+   * Redis default socket (not use).
+   */
+  const REDIS_DEFAULT_SOCKET = NULL;
+
+  /**
    * Redis default database: will select none (Database 0).
    */
   const REDIS_DEFAULT_BASE = NULL;
@@ -148,7 +153,9 @@ class Redis_Client {
         isset($conf['redis_client_host']) ? $conf['redis_client_host'] : self::REDIS_DEFAULT_HOST,
         isset($conf['redis_client_port']) ? $conf['redis_client_port'] : self::REDIS_DEFAULT_PORT,
         isset($conf['redis_client_base']) ? $conf['redis_client_base'] : self::REDIS_DEFAULT_BASE,
-        isset($conf['redis_client_password']) ? $conf['redis_client_password'] : self::REDIS_DEFAULT_PASSWORD);
+        isset($conf['redis_client_password']) ? $conf['redis_client_password'] : self::REDIS_DEFAULT_PASSWORD,
+        isset($conf['redis_client_socket']) ? $conf['redis_client_socket'] : self::REDIS_DEFAULT_SOCKET
+      );
     }
 
     return self::$_client;

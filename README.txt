@@ -142,6 +142,15 @@ greatly appreciated).
 Common settings
 ===============
 
+Connect throught a UNIX socket
+------------------------------
+
+All you have to do is specify this line:
+
+  $conf['redis_client_socket'] = '/some/path/redis.sock';
+
+Both drivers support it.
+
 Connect to a remote host
 ------------------------
 

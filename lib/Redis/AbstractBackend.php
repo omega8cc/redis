@@ -31,7 +31,7 @@ abstract class Redis_AbstractBackend
         // the DB credentials to inform our cache key - but only for Drupal 7,
         // while for Drupal 6 we still use the old method as a fallback.
         if (null === self::$globalPrefix) {
-          $isSeven = variable_get('file_private_path');
+          $isSeven = variable_get('file_private_path', FALSE);
           if ($isSeven) {
             $dbInfo = Database::getConnectionInfo();
             $active = $dbInfo['default'];

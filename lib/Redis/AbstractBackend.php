@@ -39,10 +39,10 @@ abstract class Redis_AbstractBackend
           }
           else {
             if (isset($_SERVER['SERVER_NAME'])) {
-              self::$globalPrefix = md5(preg_replace('`^www.`', '', $_SERVER['SERVER_NAME'])) . '_n_';
+              self::$globalPrefix = md5(preg_replace('`^www\.`', '', $_SERVER['SERVER_NAME'])) . '_n_';
             }
             elseif (isset($_SERVER['HTTP_HOST'])) {
-              self::$globalPrefix = md5(preg_replace('`^www.`', '', $_SERVER['HTTP_HOST'])) . '_h_';
+              self::$globalPrefix = md5(preg_replace('`^www\.`', '', $_SERVER['HTTP_HOST'])) . '_h_';
             }
           }
         }

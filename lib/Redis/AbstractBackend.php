@@ -30,6 +30,7 @@ abstract class Redis_AbstractBackend
         // connect to. To mirror what core does with database caching we use
         // the DB credentials to inform our cache key.
       if (null === self::$globalPrefix) {
+            require_once DRUPAL_ROOT . '/includes/database/database.inc';
             $dbInfo = Database::getConnectionInfo();
             $active = $dbInfo['default'];
             self::$globalPrefix = md5($active['host'] . $active['database'] . $active['prefix']['default']);

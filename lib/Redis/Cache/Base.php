@@ -116,7 +116,7 @@ abstract class Redis_Cache_Base extends Redis_AbstractBackend implements
 
   public function __construct($bin) {
 
-    parent::__construct();
+    parent::__construct($bin);
 
     $this->bin = $bin;
 

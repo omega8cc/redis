@@ -15,11 +15,6 @@ spl_autoload_register(function ($className) {
 abstract class AbstractRedisCacheUnitTestCase extends DrupalUnitTestCase
 {
     /**
-     * @var DrupalCacheInterface
-     */
-    private $backend;
-
-    /**
      * Set up the Redis configuration.
      *
      * Set up the needed variables using variable_set() if necessary.
@@ -32,21 +27,18 @@ abstract class AbstractRedisCacheUnitTestCase extends DrupalUnitTestCase
     /**
      * Get cache backend
      *
-     * @return DrupalCacheInterface
+     * @return Redis_Cache
      */
     final protected function getBackend()
     {
-        if (null === $this->backend) {
-            $class = $this->getCacheBackendClass();
+        $class = $this->getCacheBackendClass();
 
-            if (null === $class) {
-                throw new \Exception("Test skipped due to missing driver");
-            }
-
-            $this->backend = new $class('cache');
+        if (null === $class) {
+            throw new \Exception("Test skipped due to missing driver");
         }
 
-        return $this->backend;
+        $GLOBALS['conf']['redis_client_interface'] = 'PhpRedis';
+        return new Redis_Cache('cache');
     }
 
     public function setUp()

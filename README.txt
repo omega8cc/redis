@@ -21,34 +21,24 @@ probably will need to compile the extension yourself.
 Redis version
 -------------
 
-Be careful with lock.inc replacement, actual implementation uses the Redis
-WATCH command, it is actually there only since version 2.1.0. If you use
-the it, it will just pass silently and work gracefully, but lock exclusive
-mutex is exposed to race conditions.
+This module requires Redis version to be 2.6.0 or later with LUA scrpting
+enabled due to the EVAL command usage.
 
-Please use Redis 2.4.0 or later if you can. I won't maintain any bug for
-Redis versions prior to 2.4.0.
-
-If you can't upgrade you Redis server, please use an older version of this
-module (prior to 7.x-2.6).
+If you can't upgrade you Redis server:
+  - For Redis 2.4 use the latest 2.x release of this module.
+  - For Redis <=2.3 use any version of this module <=2.6
 
 Notes
 -----
 
 Both backends provide the exact same functionalities. The major difference is
-because PhpRedis uses a PHP extension, and not PHP code, it more performant.
+because PhpRedis uses a PHP extension, and not PHP code, it will performe a
+lot better (Predis needs PHP userland code to be loaded).
 
-Difference is not that visible, it's really a few millisec on my testing box.
+Difference is not that visible, it's really a few millisec on my testing box,
+in case you attempt to profile the code, traces will be a lot bigger.
 
 Note that most of the settings are shared. See next sections.
-
-Important notice
-----------------
-
-This module only supports Redis >= 2.4 due to the missing WATCH command in
-Redis <= 2.2. Using it with older versions is untested, might work but might
-also cause you serious trouble. Any bug report raised using such version will
-be ignored.
 
 Getting started
 ===============
@@ -72,7 +62,7 @@ See next chapters for more information.
 Is there any cache bins that should *never* go into Redis?
 ----------------------------------------------------------
 
-TL;DR: No.
+TL;DR: No. Except for 'cache_form' if you use Redis with LRU eviction.
 
 Redis has been maturing a lot over time, and will apply different sensible
 settings for different bins; It's today very stable.
@@ -193,6 +183,11 @@ Prefixing site cache entries (avoiding sites name collision)
 If you need to differenciate multiple sites using the same Redis instance and
 database, you will need to specify a prefix for your site cache entries.
 
+Important note: most people don't need that feature since that when no prefix
+is specified, the Redis module will attempt to use the a hash of the database
+credentials in order to provide a multisite safe default behavior. This means
+that the module will also safely work in CLI scripts.
+
 Cache prefix configuration attemps to use a unified variable accross contrib
 backends that support this feature. This variable name is 'cache_prefix'.
 
@@ -228,12 +223,6 @@ Here is a complex sample:
   // Set another prefix for 'cache_menu' bin.
   $conf['cache_prefix']['cache_menu'] = 'menumysite_';
 
-Note that if you don't specify the default behavior, the Redis module will
-attempt to use the a hash of the database credentials in order to provide a
-multisite safe default behavior. Notice that this is not failsafe. In such
-environments you are strongly advised to set at least an explicit default
-prefix.
-
 Note that this last notice is Redis only specific, because per default Redis
 server will not namespace data, thus sharing an instance for multiple sites
 will create conflicts. This is not true for every contributed backends.
@@ -255,14 +244,15 @@ three different implementations of the flush algorithm you can use:
 
  * 1: Keep a copy of temporary items identifiers in a SET and flush them
    accordingly to spec (DatabaseCache default backend mimic behavior):
-   this is the default for "page" and "block" bin if you don't change the
-   configuration.
+   this is the default behavior for all bin.
 
- * 2: Flush everything including permanent or valid items on clear() calls:
-   this behavior mimics the pre-1.0 releases of this module. Use it only
-   if you experience backward compatibility problems on a production
-   environement - at the cost of potential performance issues; All other
-   users should ignore this parameter.
+ * 3: Never flush anything but use an internal variable to proceed to cache
+   entries eviction at read time. Use this when you experience performance
+   problems while clearing the cache. Note that this can only work on the
+   long term if you configure Redis to proceed to LRU entries eviction. It
+   will also cause data to stall in the Redis server side if you don't
+   configure a maximum permanent items life time, see the next documentation
+   section for more details.
 
 You can configure a default flush mode which will override the sensible
 provided defaults by setting the 'redis_flush_mode' variable.
@@ -275,8 +265,8 @@ But you may also want to change the behavior for only a few bins.
   // This will put mode 0 on "bootstrap" bin.
   $conf['redis_flush_mode_cache_bootstrap'] = 0;
 
-  // And mode 2 to "page" bin.
-  $conf['redis_flush_mode_cache_page'] = 2;
+  // And mode 3 to "page" bin.
+  $conf['redis_flush_mode_cache_page'] = 3;
 
 Note that you must prefix your bins with "cache" as the Drupal 7 bin naming
 convention requires it.
@@ -332,10 +322,11 @@ please refer to its documentation:
 
     http://www.php.net/manual/en/dateinterval.createfromdatestring.php
 
-Last but not least please be aware that this setting affects the
-CACHE_PERMANENT ONLY; All other use cases (CACHE_TEMPORARY or user set TTL
-on single cache entries) will continue to behave as documented in Drupal core
-cache backend documentation.
+Please also be careful about the fact that those settings are overriden by
+the 'cache_lifetime' Drupal variable, which should always be set to 0.
+Moreover, this setting will affect all cache entries without exception so
+be careful and never set values too low if you don't want this setting to
+override default expire value given by modules on temporary cache entries.
 
 Lock backends
 -------------
@@ -344,7 +335,7 @@ Both implementations provides a Redis lock backend. Redis lock backend proved to
 be faster than the default SQL based one when using both servers on the same box.
 
 Both backends, thanks to the Redis WATCH, MULTI and EXEC commands provides a
-real race condition free mutexes if you use Redis >= 2.1.0.
+real race condition free mutexes by using Redis transactions.
 
 Queue backend
 -------------

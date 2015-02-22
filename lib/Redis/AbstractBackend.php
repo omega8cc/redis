@@ -42,11 +42,11 @@ abstract class Redis_AbstractBackend
     /**
      * Get global default prefix
      *
-     * @param string $suffix
+     * @param string $namespace
      *
      * @return string
      */
-    static public function getDefaultPrefix($suffix = null)
+    static public function getDefaultPrefix($namespace = null)
     {
         $ret = null;
 
@@ -59,11 +59,11 @@ abstract class Redis_AbstractBackend
                 // Variable can be a string which then considered as a default
                 // behavior.
                 $ret = $prefixes;
-            } else if (null !== $suffix && isset($prefixes[$suffix])) {
-                if (false !== $prefixes[$suffix]) {
+            } else if (null !== $namespace && isset($prefixes[$namespace])) {
+                if (false !== $prefixes[$namespace]) {
                     // If entry is set and not false an explicit prefix is set
                     // for the bin.
-                    $ret = $prefixes[$suffix];
+                    $ret = $prefixes[$namespace];
                 } else {
                     // If we have an explicit false it means no prefix whatever
                     // is the default configuration.
@@ -94,26 +94,24 @@ abstract class Redis_AbstractBackend
     private $prefix;
 
     /**
+     * @var string
+     */
+    private $namespace;
+
+    /**
      * Default constructor
      */
-    public function __construct($prefix = null)
+    public function __construct($namespace = null, $prefix = null)
     {
         if (null === $prefix) {
-            $this->prefix = $prefix = self::getDefaultPrefix();
+            $this->prefix = $prefix = self::getDefaultPrefix($namespace);
         } else {
             $this->prefix = $prefix;
         }
-    }
 
-    /**
-     * Get redis client
-     *
-     * @return Redis|Predis\Client
-     */
-    public function getClient()
-    {
-        // Ugly stateless and static
-        return Redis_Client::getClient();
+        if (null !== $namespace) {
+            $this->namespace = $namespace;
+        }
     }
 
     /**
@@ -137,6 +135,26 @@ abstract class Redis_AbstractBackend
     }
 
     /**
+     * Set namespace
+     *
+     * @param string $namespace
+     */
+    final public function setNamespace($namespace)
+    {
+        $this->namespace = $namespace;
+    }
+
+    /**
+     * Get namespace
+     *
+     * @return string
+     */
+    final public function getNamespace()
+    {
+        return $this->namespace;
+    }
+
+    /**
      * Get full key name using the set prefix
      *
      * @param string ...
@@ -148,13 +166,13 @@ abstract class Redis_AbstractBackend
     {
         $args = array_filter(func_get_args());
 
-        if (empty($args)) {
-            return $this->prefix;
-        } else if (is_array($args)) {
+        if ($this->prefix) {
             array_unshift($args, $this->prefix);
-            return implode(self::KEY_SEPARATOR, $args);
-        } else {
-            return $this->prefix . self::KEY_SEPARATOR . $args;
         }
+        if ($this->namespace) {
+            array_unshift($args, $this->namespace);
+        }
+
+        return implode(self::KEY_SEPARATOR, $args);
     }
 }

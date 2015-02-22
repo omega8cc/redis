@@ -45,12 +45,13 @@ abstract class AbstractRedisCacheFixesUnitTestCase extends AbstractRedisCacheUni
         $data = $backend->get('test4');
         $this->assertNotEqual(false, $data);
         $this->assertIdentical('foobar', $data->data);
-        sleep(3);
+        sleep(4);
         $data = $backend->get('test4');
         $this->assertEqual(false, $data);
 
         // Expiring entry with short default lifetime.
-        $conf['cache_lifetime'] = 2;
+        $conf['cache_lifetime'] = 1;
+        $backend->refreshMaxTtl();
         $backend->set('test5', 'foobaz', CACHE_TEMPORARY);
         $data = $backend->get('test5');
         $this->assertNotEqual(false, $data);
@@ -63,7 +64,7 @@ abstract class AbstractRedisCacheFixesUnitTestCase extends AbstractRedisCacheUni
     public function testDefaultPermTtl()
     {
         $backend = $this->getBackend();
-        $this->assertIdentical(Redis_Cache_Base::LIFETIME_PERM_DEFAULT, $backend->getPermTtl());
+        $this->assertIdentical(Redis_Cache::LIFETIME_PERM_DEFAULT, $backend->getPermTtl());
     }
 
     public function testUserSetDefaultPermTtl()
@@ -118,8 +119,6 @@ class PredisCacheFixesUnitTestCase extends AbstractRedisCacheFixesUnitTestCase
 
     protected function getCacheBackendClass()
     {
-        global $conf;
-
         // FIXME: This is definitely ugly but we have no choice: during unit
         // testing Drupal will attempt to reach the database if do not prepend
         // our autoloader manually. We can't do class_exists() calls either,
@@ -137,9 +136,8 @@ class PredisCacheFixesUnitTestCase extends AbstractRedisCacheFixesUnitTestCase
             return false;
         }, null, true);
 
-        $conf['redis_client_interface'] = 'Predis';
 
-        return 'Redis_Cache_Predis';
+        return 'Predis';
     }
 }
 
@@ -159,12 +157,8 @@ class PhpRedisCacheFixesUnitTestCase extends AbstractRedisCacheFixesUnitTestCase
 
     protected function getCacheBackendClass()
     {
-        global $conf;
-
         if (extension_loaded('redis') && class_exists('Redis')) {
-            $conf['redis_client_interface'] = 'PhpRedis';
-
-            return 'Redis_Cache_PhpRedis';
+            return 'PhpRedis';
         }
     }
 }

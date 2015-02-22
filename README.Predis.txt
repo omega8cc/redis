@@ -1,6 +1,9 @@
 Predis cache backend
 ====================
 
+This module will work with the Predis 1.x version. Any earlier versions
+are unsupported.
+
 This client, for now, is only able to use the Predis PHP library.
 
 The Predis library requires PHP 5.3 minimum. If your hosted environment does

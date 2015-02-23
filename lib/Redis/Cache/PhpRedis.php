@@ -74,7 +74,7 @@ class Redis_Cache_PhpRedis extends Redis_Cache_Base
     public function deleteMultiple(array $idList)
     {
         $client = Redis_Client::getClient();
-        $client->mdel($idList);
+        $client->del($idList);
     }
 
     public function deleteByPrefix($prefix)

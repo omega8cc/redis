@@ -248,11 +248,8 @@ three different implementations of the flush algorithm you can use:
 
  * 3: Never flush anything but use an internal variable to proceed to cache
    entries eviction at read time. Use this when you experience performance
-   problems while clearing the cache. Note that this can only work on the
-   long term if you configure Redis to proceed to LRU entries eviction. It
-   will also cause data to stall in the Redis server side if you don't
-   configure a maximum permanent items life time, see the next documentation
-   section for more details.
+   problems while clearing the cache or when you use proxy assisted sharding
+   since this will deactivate the EVAL command.
 
 You can configure a default flush mode which will override the sensible
 provided defaults by setting the 'redis_flush_mode' variable.
@@ -392,14 +389,16 @@ Current components state
 
 As of now, provided components are simple enough so they never use WATCH or
 MULTI/EXEC transaction blocks on multiple keys : this means that you can use
-them in an environment doing data sharding/partionning.
+them in an environment doing data sharding/partionning. This remains true
+except when you use a proxy that blocks those commands such as Twemproxy.
 
 Lock
 ----
 
 Lock backend works on a single key per lock, it theorically guarantees the
-atomicity of operations therefore is usable in a sharded environement. Note
-that this is still untested as of now. Feedback is welcome.
+atomicity of operations therefore is usable in a sharded environement. Sadly
+if you use proxy assisted sharding such as Twemproxy, WATCH, MULTI and EXEC
+commands won't pass making it non shardable.
 
 Path
 ----

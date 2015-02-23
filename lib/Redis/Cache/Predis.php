@@ -3,7 +3,42 @@
 /**
  * Predis cache backend.
  */
-class Redis_Cache_Predis extends Redis_Cache_Base {
+class Redis_Cache_Predis extends Redis_Cache_Base
+{
+    public function setLastFlushTimeFor($time, $volatile = false)
+    {
+        $client = Redis_Client::getClient();
+        $key    = $this->getNamespace() . '-' . self::LAST_FLUSH_KEY;
+
+        if ($volatile) {
+            $client->hset($key, 'volatile', $time);
+        } else {
+            $client->hmset($key, array(
+                'permanent' => $time,
+                'volatile' => $time,
+            ));
+        }
+    }
+
+    public function getLastFlushTime()
+    {
+        $client = Redis_Client::getClient();
+        $key    = $this->getNamespace() . '-' . self::LAST_FLUSH_KEY;
+        $values = $client->hmget($key, array("permanent", "volatile"));
+
+        if (empty($values) || !is_array($values)) {
+            $values = array(0, 0);
+        } else {
+            if (empty($values[0])) {
+                $values[0] = 0;
+            }
+            if (empty($values[1])) {
+                $values[1] = 0;
+            }
+        }
+
+        return $values;
+    }
 
     public function get($id)
     {

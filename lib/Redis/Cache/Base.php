@@ -9,6 +9,11 @@
 abstract class Redis_Cache_Base implements Redis_CacheBackendInterface
 {
     /**
+     * Lastest cache flush KEY name
+     */
+    const LAST_FLUSH_KEY = '_last_flush';
+
+    /**
      * Delete by prefix lua script
      */
     const EVAL_DELETE_PREFIX = <<<EOT

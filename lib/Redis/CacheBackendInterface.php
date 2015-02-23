@@ -22,6 +22,22 @@ interface Redis_CacheBackendInterface
     public function getNamespace();
 
     /**
+     * Set last flush time
+     *
+     * @param int $time
+     * @param boolean $volatile
+     */
+    public function setLastFlushTimeFor($time, $volatile = false);
+
+    /**
+     * Get last flush time
+     *
+     * @return int[]
+     *   First value is for non-volatile items, second value is for volatile items.
+     */
+    public function getLastFlushTime();
+
+    /**
      * Get a single entry
      *
      * @param string $id

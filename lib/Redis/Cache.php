@@ -79,11 +79,6 @@ class Redis_Cache
     const KEY_THRESHOLD = 20;
 
     /**
-     * Lastest cache flush KEY name.
-     */
-    const LAST_FLUSH_KEY = '_last_flush';
-
-    /**
      * @var Redis_CacheBackendInterface
      */
     protected $backend;
@@ -111,11 +106,18 @@ class Redis_Cache
     protected $maxTtl = 0;
 
     /**
-     * Last flush time.
+     * Last flush time for permanent items.
      *
      * @var int
      */
-    protected $lastFlushTime;
+    protected $lastFlushTimePermanent;
+
+    /**
+     * Last flush time for volatile items.
+     *
+     * @var int
+     */
+    protected $lastFlushTimeVolatile;
 
     /**
      * Get clear mode.
@@ -152,16 +154,21 @@ class Redis_Cache
 
     /**
      * Get latest flush time.
+     *
+     * @param boolean $volatile
+     *
+     * @return int
      */
-    public function getLastFlushTime()
+    public function getLastFlushTime($volatile = false)
     {
         if (null === $this->lastFlushTime) {
-            $cached = $this->backend->get($this->getKey(self::LAST_FLUSH_KEY));
-            if (false !== $cached) {
-                $this->lastFlushTime = (int)$cached->data;
-            } else {
-                $this->lastFlushTime = 0;
-            }
+            list($this->lastFlushTimePermanent, $this->lastFlushTimeVolatile) = $this->backend->getLastFlushTime();
+        }
+
+        if ($volatile) {
+            return max($this->lastFlushTimePermanent, $this->lastFlushTimeVolatile);
+        } else {
+            return $this->lastFlushTimePermanent;
         }
     }
 
@@ -291,6 +298,7 @@ class Redis_Cache
      * @param array $values
      *
      * @return array
+     *   Or FALSE if entry is invalid
      */
     protected function expandEntry(array $values)
     {
@@ -304,9 +312,16 @@ class Redis_Cache
         if (isset($values['expire'])) {
             // Ensure the entry is valid and have not expired.
             $expire = (int)$values['expire'];
+
             if ($expire !== CACHE_PERMANENT && $expire !== CACHE_TEMPORARY && $expire < time()) {
-                return;
+                return false;
             }
+        }
+
+        // Ensure the entry does not predate the last flush time.
+        $validityThreshold = $this->getLastFlushTime(!empty($values['volatile']));
+        if ($values['created'] < $validityThreshold) {
+            return false;
         }
 
         $entry = (object)$values;
@@ -408,12 +423,17 @@ class Redis_Cache
 
     public function clear($cid = null, $wildcard = false)
     {
+        $clearMode = $this->getClearMode();
+
         if (null === $cid && !$wildcard) {
-            switch ($this->getClearMode()) {
+            switch ($clearMode) {
 
                 // One and only case of early return, fastest implementation
                 // business valid for anything else than 'page' and 'block'.
+                case self::FLUSH_NEVER:
                 case self::FLUSH_NOTHING:
+                    $this->lastFlushTimeVolatile = time();
+                    $this->backend->setLastFlushTimeFor($this->lastFlushTimeVolatile, true);
                     break;
 
                 // Drupal default behavior but slowest implementation for
@@ -427,13 +447,21 @@ class Redis_Cache
             if (empty($cid)) {
                 // This seems to be an error, just do nothing.
             } else if ('*' === $cid) {
-                $this->backend->flush();
-                $this->backend->set(
-                    $this->getKey(self::LAST_FLUSH_KEY),
-                    $this->createEntryHash(self::LAST_FLUSH_KEY, time())
-                );
-            } else{
-                $this->backend->deleteByPrefix($this->getKey($cid));
+                $this->lastFlushTimePermanent = $this->lastFlushTimeVolatile = time();
+                $this->backend->setLastFlushTimeFor($this->lastFlushTimeVolatile, false);
+                if (self::FLUSH_NEVER !== $clearMode) {
+                    $this->backend->flush();
+                }
+            } else {
+                // @todo This needs a map algorithm the same way memcache module
+                // implemented it for invalidity by prefixes.
+                if (self::FLUSH_NEVER !== $clearMode) {
+                    $this->backend->deleteByPrefix($this->getKey($cid));
+                } else {
+                    // @todo Very stupid working fallback.
+                    $this->lastFlushTimePermanent = $this->lastFlushTimeVolatile = time();
+                    $this->backend->setLastFlushTimeFor($this->lastFlushTimeVolatile, false);
+                }
             }
         } else {
             $this->backend->delete($this->getKey($cid));

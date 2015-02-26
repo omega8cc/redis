@@ -236,7 +236,7 @@ class Redis_Cache
         } else {
             if ($iv = DateInterval::createFromDateString($ttl)) {
                 // http://stackoverflow.com/questions/14277611/convert-dateinterval-object-to-seconds-in-php
-                $this->permTtl = ($iv->y * 31536000 + $iv->m * 2592000 + $iv->days * 86400 + $iv->h * 3600 + $iv->i * 60 + $iv->s);
+                $this->permTtl = ($iv->y * 31536000 + $iv->m * 2592000 + $iv->d * 86400 + $iv->h * 3600 + $iv->i * 60 + $iv->s);
             } else {
                 // Sorry but we have to log this somehow.
                 trigger_error(sprintf("Parsed TTL '%s' has an invalid value: switching to default", $ttl));

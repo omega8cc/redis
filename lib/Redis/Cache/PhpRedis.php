@@ -27,17 +27,18 @@ class Redis_Cache_PhpRedis extends Redis_Cache_Base
         $values = $client->hmget($key, array("permanent", "volatile"));
 
         if (empty($values) || !is_array($values)) {
-            $values = array(0, 0);
+            $ret = array(0, 0);
         } else {
-            if (empty($values[0])) {
-                $values[0] = 0;
+            if (empty($values['permanent'])) {
+                $values['permanent'] = 0;
             }
-            if (empty($values[1])) {
-                $values[1] = 0;
+            if (empty($values['volatile'])) {
+                $values['volatile'] = 0;
             }
+            $ret = array($values['permanent'], $values['volatile']);
         }
 
-        return $values;
+        return $ret;
     }
 
     public function get($id)

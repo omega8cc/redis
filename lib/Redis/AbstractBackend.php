@@ -166,11 +166,11 @@ abstract class Redis_AbstractBackend
     {
         $args = array_filter(func_get_args());
 
-        if ($this->prefix) {
-            array_unshift($args, $this->prefix);
-        }
         if ($this->namespace) {
             array_unshift($args, $this->namespace);
+        }
+        if ($this->prefix) {
+            array_unshift($args, $this->prefix);
         }
 
         return implode(self::KEY_SEPARATOR, $args);

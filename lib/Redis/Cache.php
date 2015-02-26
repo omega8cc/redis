@@ -363,6 +363,7 @@ class Redis_Cache
 
         $entries = $this->backend->getMultiple($map);
 
+        $map = array_flip($map);
         if (!empty($entries)) {
             foreach ($entries as $id => $values) {
 
@@ -372,7 +373,8 @@ class Redis_Cache
                     $delete[] = $id;
                     unset($entries[$id], $map[$id]);
                 } else {
-                    $entries[$id] = $entry;
+                    $cid = $map[$id];
+                    $entries[$cid] = $entry;
                 }
             }
         }

@@ -161,7 +161,7 @@ class Redis_Cache
      */
     public function getLastFlushTime($volatile = false)
     {
-        if (null === $this->lastFlushTime) {
+        if (null === $this->lastFlushTimePermanent) {
             list($this->lastFlushTimePermanent, $this->lastFlushTimeVolatile) = $this->backend->getLastFlushTime();
         }
 

@@ -355,6 +355,7 @@ class Redis_Cache
     public function getMultiple(&$cids)
     {
         $map    = array();
+        $ret    = array();
         $delete = array();
 
         foreach ($cids as $cid) {
@@ -371,10 +372,10 @@ class Redis_Cache
 
                 if (empty($entry)) {
                     $delete[] = $id;
-                    unset($entries[$id], $map[$id]);
+                    unset($map[$id]);
                 } else {
                     $cid = $map[$id];
-                    $entries[$cid] = $entry;
+                    $ret[$cid] = $entry;
                 }
             }
         }
@@ -386,7 +387,7 @@ class Redis_Cache
         // @todo Note sure this will update the referenced array thought.
         $cids = array_diff($cids, $map);
 
-        return $entries;
+        return $ret;
     }
 
     public function set($cid, $data, $expire = CACHE_PERMANENT)

@@ -92,7 +92,7 @@ abstract class Redis_AbstractBackend
             }
         }
 
-        $ret = ''; // Ignore prefix defined in global.inc or local_settings.php
+        $ret = ''; // Ignore prefix defined in global.inc or local.settings.php
         if (empty($ret)) {
             $ret = self::getGlobalPrefix();
         }

@@ -34,7 +34,7 @@ class Redis_Lock_Backend_PhpRedis extends Redis_Lock_Backend_Default {
         return FALSE;
       }
 
-      // See https://github.com/nicolasff/phpredis#watch-unwatch
+      // See https://github.com/phpredis/phpredis#watch-unwatch
       // MULTI and other commands can fail, so we can't chain calls.
       if (FALSE !== ($result = $client->multi())) {
         $client->setex($key, $timeout, $id);
@@ -61,7 +61,7 @@ class Redis_Lock_Backend_PhpRedis extends Redis_Lock_Backend_Default {
         return FALSE;
       }
 
-      // See https://github.com/nicolasff/phpredis#watch-unwatch
+      // See https://github.com/phpredis/phpredis#watch-unwatch
       // MULTI and other commands can fail, so we can't chain calls.
       if (FALSE !== ($result = $client->multi())) {
         $client->setex($key, $timeout, $id);

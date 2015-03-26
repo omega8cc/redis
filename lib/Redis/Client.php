@@ -120,11 +120,13 @@ class Redis_Client {
       else if (class_exists('Predis\Client')) {
         // Transparent and abitrary preference for Predis library.
         $className = self::getClass(self::REDIS_IMPL_CLIENT, 'Predis');
+        $conf['redis_client_interface'] = 'Predis';
         self::$_clientInterface = new $className();
       }
       else if (class_exists('Redis')) {
         // Fallback on PhpRedis if available.
         $className = self::getClass(self::REDIS_IMPL_CLIENT, 'PhpRedis');
+        $conf['redis_client_interface'] = 'PhpRedis';
         self::$_clientInterface = new $className();
       }
       else {

@@ -47,3 +47,27 @@ function redis_help($path, $arg) {
       return $messages;
   }
 }
+
+/**
+ * Get Redis client for php-redis extension.
+ *
+ * @return \Redis
+ */
+function phpredis_client_get() {
+  if ('PhpRedis' !== variable_get('redis_client_interface')) {
+    return Redis_Client::getClient();
+  }
+  throw new \LogicException("Redis is not configured to use the php-redis client");
+}
+
+/**
+ * Get Redis client for Predis library.
+ *
+ * @return \Predis\Client
+ */
+function predis_client_get() {
+  if ('Predis' !== variable_get('redis_client_interface')) {
+    return Redis_Client::getClient();
+  }
+  throw new \LogicException("Redis is not configured to use the Predis client");
+}

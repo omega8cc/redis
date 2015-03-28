@@ -466,6 +466,9 @@ class Redis_Cache
                     $this->backend->setLastFlushTimeFor($this->lastFlushTimeVolatile, false);
                 }
             }
+        } else if (is_array($cid)) {
+            $idList = array_map(array($this, 'getKey'), $cid);
+            $this->backend->deleteMultiple($idList);
         } else {
             $this->backend->delete($this->getKey($cid));
         }

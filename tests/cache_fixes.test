@@ -100,6 +100,24 @@ abstract class AbstractRedisCacheFixesUnitTestCase extends AbstractRedisCacheUni
         $item = $backend->get('test6');
         $this->assertTrue(empty($item));
     }
+
+    public function testClearAsArray()
+    {
+        $backend = $this->getBackend();
+
+        $backend->set('test7', 1);
+        $backend->set('test8', 2);
+        $backend->set('test9', 3);
+
+        $backend->clear(array('test7', 'test9'));
+
+        $item = $backend->get('test7');
+        $this->assertTrue(empty($item));
+        $item = $backend->get('test8');
+        $this->assertEqual(2, $item->data);
+        $item = $backend->get('test9');
+        $this->assertTrue(empty($item));
+    }
 }
 
 /**

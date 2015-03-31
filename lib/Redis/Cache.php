@@ -302,6 +302,10 @@ class Redis_Cache
      */
     protected function expandEntry(array $values)
     {
+        // Please note that all time based validity checks will use <=
+        // operator because if you flush and load the exact same second
+        // the entry must be considered as invalid
+
         // Check for entry being valid.
         if (empty($values['cid'])) {
             return;
@@ -313,14 +317,14 @@ class Redis_Cache
             // Ensure the entry is valid and have not expired.
             $expire = (int)$values['expire'];
 
-            if ($expire !== CACHE_PERMANENT && $expire !== CACHE_TEMPORARY && $expire < time()) {
+            if ($expire !== CACHE_PERMANENT && $expire !== CACHE_TEMPORARY && $expire <= time()) {
                 return false;
             }
         }
 
         // Ensure the entry does not predate the last flush time.
         $validityThreshold = $this->getLastFlushTime(!empty($values['volatile']));
-        if ($values['created'] < $validityThreshold) {
+        if ($values['created'] <= $validityThreshold) {
             return false;
         }
 

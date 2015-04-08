@@ -8,7 +8,7 @@ class Redis_Client_Manager
     /**
      * Redis default host
      */
-    const REDIS_DEFAULT_HOST = "127.0.0.1";
+    const REDIS_DEFAULT_HOST = '127.0.0.1';
 
     /**
      * Redis default port
@@ -36,15 +36,48 @@ class Redis_Client_Manager
     const REALM_DEFAULT = 'default';
 
     /**
-     * @var Redis_Client_Interface[]
+     * Client interface name (PhpRedis or Predis)
+     *
+     * @var string
      */
-    private $clients;
+    private $interfaceName;
+
+    /**
+     * @var array[]
+     */
+    private $serverList = array();
+
+    /**
+     * @var mixed[]
+     */
+    private $clients = array();
+
+    /**
+     * @var Redis_Client_FactoryInterface
+     */
+    private $factory;
+
+    /**
+     * Default constructor
+     *
+     * @param Redis_Client_FactoryInterface $factory
+     *   Client factory
+     * @param array $serverList
+     *   Server connection info list
+     */
+    public function __construct(Redis_Client_FactoryInterface $factory, $serverList = array())
+    {
+        $this->factory = $factory;
+        $this->serverList = $serverList;
+    }
 
     /**
      * Get client for the given realm
      *
      * @param string $realm
      * @param boolean $allowDefault
+     *
+     * @return mixed
      */
     public function getClient($realm = self::REALM_DEFAULT, $allowDefault = true)
     {
@@ -52,7 +85,13 @@ class Redis_Client_Manager
             $client = $this->createClient($realm);
 
             if (false === $client) {
-                // @todo
+                if (self::REALM_DEFAULT !== $realm && $allowDefault) {
+                    $this->clients[$realm] = $this->getClient(self::REALM_DEFAULT);
+                } else {
+                    throw new InvalidArgumentException(sprintf("Could not find client for realm '%s'", $realm));
+                }
+            } else {
+                $this->clients[$realm] = $client;
             }
         }
 
@@ -70,26 +109,12 @@ class Redis_Client_Manager
      */
     private function buildOptions($realm)
     {
-        global $conf;
-
         $info = null;
 
-        if (isset($conf['redis_servers'])) {
-            if (isset($conf['redis_servers'][$realm])) {
-                $info = $conf['redis_servers'][$realm];
-            } else {
-                return false;
-            }
-        }
-
-        if (null === $info && self::REALM_DEFAULT === $realm) {
-            // Backward configuration compatibility with older version
-            $info = array();
-            foreach (array('host', 'port', 'base', 'password', 'socket') as $key) {
-                if (isset($conf['redis_client_' . $key])) {
-                    $info[$key] = $conf['redis_client_' . $key];
-                }
-            }
+        if (isset($this->serverList[$realm])) {
+            $info = $this->serverList[$realm];
+        } else {
+            return false;
         }
 
         $info += array(
@@ -100,7 +125,7 @@ class Redis_Client_Manager
             'socket'   => self::REDIS_DEFAULT_SOCKET
         );
 
-        return $info;
+        return array_filter($info);
     }
 
     /**
@@ -111,7 +136,9 @@ class Redis_Client_Manager
         $info = $this->buildOptions($realm);
 
         if (false === $info) {
-            
+            return false;
         }
+
+        return $this->factory->getClient($info);
     }
 }

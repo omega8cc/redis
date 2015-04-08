@@ -3,7 +3,7 @@
 /**
  * Predis client specific implementation.
  */
-class Redis_Client_Predis implements Redis_Client_Interface {
+class Redis_Client_Predis implements Redis_Client_FactoryInterface {
 
   /**
    * Circular depedency breaker.
@@ -86,22 +86,16 @@ class Redis_Client_Predis implements Redis_Client_Interface {
     }
   }
 
-  public function getClient($host = NULL, $port = NULL, $base = NULL, $password = NULL, $socket = NULL) {
-    $connectionInfo = array(
-      'password' => $password,
-      'host'     => $host,
-      'port'     => $port,
-      'database' => $base
-    );
+  public function getClient($options = array()) {
 
-    if (!empty($socket)) {
-      $connectionInfo['scheme'] = 'unix';
-      $connectionInfo['path'] = $socket;
+    if (!empty($options['socket'])) {
+      $options['scheme'] = 'unix';
+      $options['path'] = $options['socket'];
     }
 
-    foreach ($connectionInfo as $key => $value) {
+    foreach ($options as $key => $value) {
       if (!isset($value)) {
-        unset($connectionInfo[$key]);
+        unset($options[$key]);
       }
     }
 
@@ -111,7 +105,7 @@ class Redis_Client_Predis implements Redis_Client_Interface {
     // account has logged in.
     date_default_timezone_set(@date_default_timezone_get());
 
-    $client = new \Predis\Client($connectionInfo);
+    $client = new \Predis\Client($options);
 
     return $client;
   }

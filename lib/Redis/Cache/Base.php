@@ -6,7 +6,7 @@
  *   - Deambiguate why we need the namespace only for flush*() operations
  *   - Implement the isEmpty() method by using SCAN or KEYS
  */
-abstract class Redis_Cache_Base implements Redis_CacheBackendInterface
+abstract class Redis_Cache_Base implements Redis_Cache_BackendInterface
 {
     /**
      * Lastest cache flush KEY name

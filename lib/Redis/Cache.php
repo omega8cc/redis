@@ -79,7 +79,7 @@ class Redis_Cache
     const KEY_THRESHOLD = 20;
 
     /**
-     * @var Redis_CacheBackendInterface
+     * @var Redis_Cache_BackendInterface
      */
     protected $backend;
 

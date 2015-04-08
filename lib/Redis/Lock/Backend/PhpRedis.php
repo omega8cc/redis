@@ -9,7 +9,7 @@
 class Redis_Lock_Backend_PhpRedis extends Redis_Lock_Backend_Default {
 
   public function lockAcquire($name, $timeout = 30.0) {
-    $client = Redis_Client::getClient();
+    $client = $this->getClient();
     $key    = $this->getKey($name);
     $id     = $this->getLockId();
 
@@ -85,7 +85,7 @@ class Redis_Lock_Backend_PhpRedis extends Redis_Lock_Backend_Default {
   }
 
   public function lockMayBeAvailable($name) {
-    $client = Redis_Client::getClient();
+    $client = $this->getClient();
     $key    = $this->getKey($name);
     $id     = $this->getLockId();
 
@@ -95,7 +95,7 @@ class Redis_Lock_Backend_PhpRedis extends Redis_Lock_Backend_Default {
   }
 
   public function lockRelease($name) {
-    $client = Redis_Client::getClient();
+    $client = $this->getClient();
     $key    = $this->getKey($name);
     $id     = $this->getLockId();
 
@@ -121,12 +121,12 @@ class Redis_Lock_Backend_PhpRedis extends Redis_Lock_Backend_Default {
       return;
     }
 
-    $client = Redis_Client::getClient();
+    $client = $this->getClient();
     $id     = isset($lock_id) ? $lock_id : $this->getLockId();
 
     // We can afford to deal with a slow algorithm here, this should not happen
     // on normal run because we should have removed manually all our locks.
-    foreach ($this->_locks as $name => $foo) {
+    foreach (array_keys($this->_locks) as $name) {
       $key   = $this->getKey($name);
       $owner = $client->get($key);
 

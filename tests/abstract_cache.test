@@ -46,12 +46,14 @@ abstract class AbstractRedisCacheUnitTestCase extends DrupalUnitTestCase
         parent::setUp();
 
         drupal_install_schema('system');
+        drupal_install_schema('locale');
     }
 
     public function tearDown()
     {
         $this->backend = null;
 
+        drupal_uninstall_schema('locale');
         drupal_uninstall_schema('system');
 
         parent::tearDown();

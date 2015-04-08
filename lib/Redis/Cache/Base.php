@@ -6,7 +6,7 @@
  *   - Deambiguate why we need the namespace only for flush*() operations
  *   - Implement the isEmpty() method by using SCAN or KEYS
  */
-abstract class Redis_Cache_Base implements Redis_Cache_BackendInterface
+abstract class Redis_Cache_Base extends Redis_AbstractBackend
 {
     /**
      * Lastest cache flush KEY name
@@ -36,19 +36,4 @@ for i, k in ipairs(keys) do
 end
 return 1
 EOT;
-
-    /**
-     * @var string
-     */
-    protected $namespace;
-
-    public function __construct($namespace)
-    {
-        $this->namespace = $namespace;
-    }
-
-    public function getNamespace()
-    {
-        return $this->namespace;
-    }
 }

@@ -17,7 +17,7 @@ class Redis_Lock {
   public static function getBackend() {
     if (!isset(self::$instance)) {
       $className = Redis_Client::getClass(Redis_Client::REDIS_IMPL_LOCK);
-      self::$instance = new $className();
+      self::$instance = new $className(Redis_Client::getClient());
     }
     return self::$instance;
   }

@@ -1,6 +1,6 @@
 <?php
 
-abstract class Redis_AbstractBackend
+abstract class Redis_AbstractBackend implements Redis_BackendInterface
 {
     /**
      * Key components name separator
@@ -18,10 +18,24 @@ abstract class Redis_AbstractBackend
     private $namespace;
 
     /**
-     * Default constructor
+     * @var mixed
      */
-    public function __construct($namespace = null, $prefix = null)
+    private $client;
+
+    /**
+     * Default constructor
+     *
+     * @param mixed $client
+     *   Redis client
+     * @param string $namespace
+     *   Component namespace
+     * @param string $prefix
+     *   Component prefix
+     */
+    public function __construct($client, $namespace = null, $prefix = null)
     {
+        $this->client = $client;
+
         if (null === $prefix) {
             $this->prefix = $prefix = Redis_Client::getDefaultPrefix($namespace);
         } else {
@@ -33,54 +47,36 @@ abstract class Redis_AbstractBackend
         }
     }
 
-    /**
-     * Set prefix
-     *
-     * @param string $prefix
-     */
+    final public function setClient($client)
+    {
+        $this->client = $client;
+    }
+
+    final public function getClient()
+    {
+        return $this->client;
+    }
+
     final public function setPrefix($prefix)
     {
         $this->prefix = $prefix;
     }
 
-    /**
-     * Get prefix
-     *
-     * @return string
-     */
     final public function getPrefix()
     {
         return $this->prefix;
     }
 
-    /**
-     * Set namespace
-     *
-     * @param string $namespace
-     */
     final public function setNamespace($namespace)
     {
         $this->namespace = $namespace;
     }
 
-    /**
-     * Get namespace
-     *
-     * @return string
-     */
     final public function getNamespace()
     {
         return $this->namespace;
     }
 
-    /**
-     * Get full key name using the set prefix
-     *
-     * @param string ...
-     *   Any numer of strings to append to path using the separator
-     *
-     * @return string
-     */
     public function getKey()
     {
         $args = array_filter(func_get_args());

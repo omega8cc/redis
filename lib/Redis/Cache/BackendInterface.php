@@ -5,14 +5,14 @@
  * Redis_Cache wrapper class that implements the high-level logic that
  * allows us to be Drupal compatible.
  */
-interface Redis_Cache_BackendInterface
+interface Redis_Cache_BackendInterface extends Redis_BackendInterface
 {
     /**
      * Defaut constructor
      *
      * @param string $namespace
      */
-    public function __construct($namespace);
+    public function __construct($client, $namespace);
 
     /**
      * Get namespace

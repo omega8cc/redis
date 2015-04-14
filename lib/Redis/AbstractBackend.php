@@ -35,12 +35,7 @@ abstract class Redis_AbstractBackend implements Redis_BackendInterface
     public function __construct($client, $namespace = null, $prefix = null)
     {
         $this->client = $client;
-
-        if (null === $prefix) {
-            $this->prefix = $prefix = Redis_Client::getDefaultPrefix($namespace);
-        } else {
-            $this->prefix = $prefix;
-        }
+        $this->prefix = $prefix;
 
         if (null !== $namespace) {
             $this->namespace = $namespace;

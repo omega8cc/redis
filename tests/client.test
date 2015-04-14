@@ -1,0 +1,93 @@
+<?php
+
+/**
+ * Bugfixes made over time test class.
+ */
+class RedisClientUnitTestCase extends DrupalUnitTestCase
+{
+    public static function getInfo()
+    {
+        return array(
+            'name'        => 'Redis client manager',
+            'description' => 'Tests Redis module client manager feature.',
+            'group'       => 'Redis',
+        );
+    }
+
+    public function setUp()
+    {
+        parent::setUp();
+
+        drupal_install_schema('system');
+        drupal_install_schema('locale');
+    }
+
+    public function tearDown()
+    {
+        drupal_uninstall_schema('locale');
+        drupal_uninstall_schema('system');
+
+        parent::tearDown();
+    }
+
+    public function getManager()
+    {
+        return new Redis_Client_Manager(
+            new RedisClientMockFactory(),
+            array(
+                'default' => array(),
+                'foo' => array(
+                    'host' => 'foo.com',
+                    'port' => 666,
+                ),
+                'bar' => array(
+                    'host' => 'bar.com',
+                ),
+            )
+        );
+    }
+
+    public function testManagerServerList()
+    {
+        $manager = $this->getManager();
+
+        $defaultClient = $manager->getClient();
+        $this->assertTrue(is_object($defaultClient));
+
+        // Ensure defaults are OK
+        $this->assertIdentical(Redis_Client_Manager::REDIS_DEFAULT_HOST, $defaultClient->host);
+        $this->assertIdentical(Redis_Client_Manager::REDIS_DEFAULT_PORT, $defaultClient->port);
+        $this->assertFalse(property_exists($defaultClient, 'base'));
+        $this->assertFalse(property_exists($defaultClient, 'password'));
+
+        $client = $manager->getClient('foo');
+        $this->assertIdentical('foo.com', $client->host);
+        $this->assertIdentical(666, $client->port);
+
+        $client = $manager->getClient('bar');
+        $this->assertIdentical('bar.com', $client->host);
+        $this->assertIdentical(Redis_Client_Manager::REDIS_DEFAULT_PORT, $client->port);
+
+        $this->assertIdentical($defaultClient, $manager->getClient('non_existing'));
+
+        try {
+            $manager->getClient('other_non_existing', false);
+            $this->assert(false);
+        } catch (\InvalidArgumentException $e) {
+            $this->assert(true);
+        }
+    }
+}
+
+class RedisClientMockFactory implements Redis_Client_FactoryInterface
+{
+    public function getClient($options = array())
+    {
+        return (object)$options;
+    }
+
+    public function getName()
+    {
+        return 'Mock';
+    }
+} 

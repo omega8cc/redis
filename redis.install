@@ -21,7 +21,7 @@ function redis_requirements($phase) {
   if (Redis_Client::getClient()) {
     $requirements['redis'] = array(
       'title'       => "Redis",
-      'value'       => t("Connected, using the <em>@name</em> client.", array('@name' => Redis_Client::getClientName())),
+      'value'       => t("Connected, using the <em>@name</em> client.", array('@name' => Redis_Client::getClientInterfaceName())),
       'severity'    => REQUIREMENT_OK,
     );
   }

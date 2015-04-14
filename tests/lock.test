@@ -56,17 +56,20 @@ abstract class AbstractRedisLockingUnitTestCase extends DrupalUnitTestCase
     /**
      * Create a new lock backend with a generated lock id
      *
-     * @return Redis_Lock_Backend_Interface
+     * @return Redis_Lock_BackendInterface
      */
     public function createLockBackend()
     {
-        $class = $this->getLockBackendClass();
-
-        if (!class_exists($class)) {
+        if (!$this->getLockBackendClass()) {
             throw new \Exception("Lock backend class does not exist");
         }
 
-        return $this->backends[] = new $class();
+        $className = Redis_Client::getClass(Redis_Client::REDIS_IMPL_LOCK);
+
+        return $this->backends[] = new $className(
+            Redis_Client::getClient(),
+            Redis_Client::getDefaultPrefix('lock')
+        );
     }
 
     public function testLock()
@@ -175,7 +178,7 @@ class PredisLockingUnitTestCase extends AbstractRedisLockingUnitTestCase
 
         $conf['redis_client_interface'] = 'Predis';
 
-        return 'Redis_Lock_Backend_Predis';
+        return 'Redis_Lock_Predis';
     }
 }
 
@@ -200,7 +203,7 @@ class PhpRedisLockingUnitTestCase extends AbstractRedisLockingUnitTestCase
         if (extension_loaded('redis') && class_exists('Redis')) {
             $conf['redis_client_interface'] = 'PhpRedis';
 
-            return 'Redis_Lock_Backend_PhpRedis';
+            return 'Redis_Lock_PhpRedis';
         }
     }
 }

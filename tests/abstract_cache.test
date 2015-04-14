@@ -37,7 +37,7 @@ abstract class AbstractRedisCacheUnitTestCase extends DrupalUnitTestCase
             throw new \Exception("Test skipped due to missing driver");
         }
 
-        $GLOBALS['conf']['redis_client_interface'] = 'PhpRedis';
+        $GLOBALS['conf']['redis_client_interface'] = $class;
         return new Redis_Cache('cache');
     }
 

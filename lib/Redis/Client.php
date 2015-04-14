@@ -23,7 +23,7 @@ class Redis_Client
     /**
      * Lock implementation namespace.
      */
-    const REDIS_IMPL_LOCK = 'Redis_Lock_Backend_';
+    const REDIS_IMPL_LOCK = 'Redis_Lock_';
 
     /**
      * Cache implementation namespace.
@@ -31,17 +31,12 @@ class Redis_Client
     const REDIS_IMPL_QUEUE = 'Redis_Queue_';
 
     /**
-     * Session implementation namespace.
-     */
-    const REDIS_IMPL_SESSION = 'Redis_Session_Backend_';
-
-    /**
-     * Session implementation namespace.
+     * Path implementation namespace.
      */
     const REDIS_IMPL_PATH = 'Redis_Path_';
 
     /**
-     * Session implementation namespace.
+     * Client factory implementation namespace.
      */
     const REDIS_IMPL_CLIENT = 'Redis_Client_';
 
@@ -150,8 +145,12 @@ class Redis_Client
             if (isset($conf['redis_servers'])) {
                 $serverList = $conf['redis_servers'];
             }
-            // Backward configuration compatibility with older versions
+
             if (empty($serverList) || !isset($serverList['default'])) {
+
+                // Backward configuration compatibility with older versions
+                $serverList[Redis_Client_Manager::REALM_DEFAULT] = array();
+
                 foreach (array('host', 'port', 'base', 'password', 'socket') as $key) {
                     if (isset($conf['redis_client_' . $key])) {
                         $serverList[Redis_Client_Manager::REALM_DEFAULT][$key] = $conf['redis_client_' . $key];
@@ -170,7 +169,7 @@ class Redis_Client
      *
      * @return string
      */
-    static private function getClientInterfaceName()
+    static public function getClientInterfaceName()
     {
         global $conf;
 
@@ -185,6 +184,14 @@ class Redis_Client
         } else {
             throw new Exception("No client interface set.");
         }
+    }
+
+    /**
+     * For unit test use only
+     */
+    static public function reset(Redis_Client_Manager $manager = null)
+    {
+        self::$manager = $manager;
     }
 
     /**

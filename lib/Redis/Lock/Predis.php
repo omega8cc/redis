@@ -6,7 +6,7 @@
  * This implementation works with a single key per lock so is viable when
  * doing client side sharding and/or using consistent hashing algorithm.
  */
-class Redis_Lock_Backend_Predis extends Redis_Lock_Backend_Default {
+class Redis_Lock_Predis extends Redis_Lock_DefaultBackend {
 
   public function lockAcquire($name, $timeout = 30.0) {
     $client = $this->getClient();

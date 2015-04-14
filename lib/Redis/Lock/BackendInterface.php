@@ -3,7 +3,7 @@
 /**
  * Lock backend interface.
  */
-interface Redis_Lock_Backend_Interface {
+interface Redis_Lock_BackendInterface {
   /**
    * Acquire lock.
    * 

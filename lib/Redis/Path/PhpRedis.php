@@ -11,7 +11,7 @@ class Redis_Path_PhpRedis extends Redis_Path_AbstractHashLookup
 {
     protected function saveInHash($key, $hkey, $hvalue)
     {
-        $client = Redis_Client::getClient();
+        $client = $this->getClient();
 
         $value = $client->hget($key, $hkey);
 
@@ -57,7 +57,7 @@ class Redis_Path_PhpRedis extends Redis_Path_AbstractHashLookup
 
     protected function deleteInHash($key, $hkey, $hvalue)
     {
-        $client = Redis_Client::getClient();
+        $client = $this->getClient();
 
         $value = $client->hget($key, $hkey);
 
@@ -86,14 +86,14 @@ class Redis_Path_PhpRedis extends Redis_Path_AbstractHashLookup
 
     public function deleteLanguage($language)
     {
-        $client = Redis_Client::getClient();
+        $client = $this->getClient();
         $client->del($this->getKey(self::KEY_ALIAS, $language));
         $client->del($this->getKey(self::KEY_SOURCE, $language));
     }
 
     public function lookupInHash($keyPrefix, $hkey, $language = null)
     {
-        $client = Redis_Client::getClient();
+        $client = $this->getClient();
 
         if (null === $language) {
             $language = LANGUAGE_NONE;

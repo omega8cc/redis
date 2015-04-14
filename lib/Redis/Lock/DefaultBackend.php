@@ -3,8 +3,9 @@
 /**
  * Lock backend shared methods.
  */
-abstract class Redis_Lock_Backend_Default extends Redis_AbstractBackend implements
-    Redis_Lock_Backend_Interface
+abstract class Redis_Lock_DefaultBackend
+    extends Redis_AbstractBackend
+    implements Redis_Lock_BackendInterface
 {
   /**
    * Current page lock token identifier.
@@ -23,7 +24,7 @@ abstract class Redis_Lock_Backend_Default extends Redis_AbstractBackend implemen
   /**
    * Default implementation from actual Drupal core.
    *
-   * @see Redis_Lock_Backend_Interface::lockWait()
+   * @see Redis_Lock_BackendInterface::lockWait()
    */
   public function lockWait($name, $delay = 30) {
     // Pause the process for short periods between calling
@@ -64,7 +65,7 @@ abstract class Redis_Lock_Backend_Default extends Redis_AbstractBackend implemen
   /**
    * Default implementation from actual Drupal core.
    *
-   * @see Redis_Lock_Backend_Interface::getLockId()
+   * @see Redis_Lock_BackendInterface::getLockId()
    */
   public function getLockId() {
     if (!isset($this->_lockId)) {

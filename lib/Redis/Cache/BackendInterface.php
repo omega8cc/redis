@@ -1,18 +1,18 @@
 <?php
 
 /**
- * Redis backend will differ a bit from DrupalCacheInterface for the sake
- * of simplicity and consistency, this allows us to share the base code,
- * and even to create different backends from Redis using the same interface.
+ * Real cache backend primitives. This functions will be used by the
+ * Redis_Cache wrapper class that implements the high-level logic that
+ * allows us to be Drupal compatible.
  */
-interface Redis_CacheBackendInterface
+interface Redis_Cache_BackendInterface extends Redis_BackendInterface
 {
     /**
      * Defaut constructor
      *
      * @param string $namespace
      */
-    public function __construct($namespace);
+    public function __construct($client, $namespace);
 
     /**
      * Get namespace

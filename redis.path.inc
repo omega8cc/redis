@@ -18,7 +18,7 @@ function redis_path_backend_get() {
   if (null === $hashLookup) {
     try {
       $className = Redis_Client::getClass(Redis_Client::REDIS_IMPL_PATH);
-      $hashLookup = new $className();
+      $hashLookup = new $className(Redis_Client::getClient());
     } catch (Exception $e) {
       $hashLookup = new Redis_Path_NullHashLookup();
     }

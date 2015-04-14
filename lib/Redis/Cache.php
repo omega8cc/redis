@@ -12,7 +12,6 @@
  * and return values.
  */
 class Redis_Cache
-    extends Redis_AbstractBackend
     implements DrupalCacheInterface
 {
     /**
@@ -79,9 +78,14 @@ class Redis_Cache
     const KEY_THRESHOLD = 20;
 
     /**
-     * @var Redis_CacheBackendInterface
+     * @var Redis_Cache_BackendInterface
      */
     protected $backend;
+
+    /**
+     * @var string
+     */
+    protected $bin;
 
     /**
      * @var int
@@ -172,12 +176,12 @@ class Redis_Cache
         }
     }
 
-    public function __construct($namespace)
+    public function __construct($bin)
     {
-        parent::__construct($namespace);
+        $this->bin = $bin;
 
         $className = Redis_Client::getClass(Redis_Client::REDIS_IMPL_CACHE);
-        $this->backend = new $className($this->getKey());
+        $this->backend = new $className(Redis_Client::getClient(), $bin, Redis_Client::getDefaultPrefix($bin));
 
         $this->refreshClearMode();
         $this->refreshPermTtl();
@@ -189,14 +193,12 @@ class Redis_Cache
      */
     public function refreshClearMode()
     {
-        $namespace = $this->getNamespace();
-
         if (0 < variable_get('cache_lifetime', 0)) {
             // Per Drupal default behavior, when the 'cache_lifetime' variable
             // is set we must not flush any temporary items since they have a
             // life time.
             $this->clearMode = self::FLUSH_NOTHING;
-        } else if (null !== ($mode = variable_get('redis_flush_mode_' . $namespace, null))) {
+        } else if (null !== ($mode = variable_get('redis_flush_mode_' . $this->bin, null))) {
             // A bin specific flush mode has been set.
             $this->clearMode = (int)$mode;
         } else if (null !== ($mode = variable_get('redis_flush_mode', null))) {
@@ -206,7 +208,7 @@ class Redis_Cache
             // No flush mode is set by configuration: provide sensible defaults.
             // See FLUSH_* constants for comprehensible explaination of why this
             // exists.
-            switch ($namespace) {
+            switch ($this->bin) {
 
                 case 'cache_page':
                 case 'cache_block':
@@ -226,7 +228,7 @@ class Redis_Cache
     protected function refreshPermTtl()
     {
         $ttl = null;
-        if (null === ($ttl = variable_get('redis_perm_ttl_' . $this->getNamespace(), null))) {
+        if (null === ($ttl = variable_get('redis_perm_ttl_' . $this->bin, null))) {
             if (null === ($ttl = variable_get('redis_perm_ttl', null))) {
                 $ttl = self::LIFETIME_PERM_DEFAULT;
             }
@@ -339,8 +341,7 @@ class Redis_Cache
 
     public function get($cid)
     {
-        $id     = $this->getKey($cid);
-        $values = $this->backend->get($id);
+        $values = $this->backend->get($cid);
 
         if (empty($values)) {
             return false;
@@ -349,7 +350,7 @@ class Redis_Cache
         $entry = $this->expandEntry($values);
 
         if (!$entry) { // This entry exists but is invalid.
-            $this->backend->delete($id);
+            $this->backend->delete($cid);
             return false;
         }
 
@@ -358,13 +359,9 @@ class Redis_Cache
 
     public function getMultiple(&$cids)
     {
-        $map    = array();
+        $map    = drupal_map_assoc($cids);
         $ret    = array();
         $delete = array();
-
-        foreach ($cids as $cid) {
-            $map[$cid] = $this->getKey($cid);
-        }
 
         $entries = $this->backend->getMultiple($map);
 
@@ -397,17 +394,16 @@ class Redis_Cache
     public function set($cid, $data, $expire = CACHE_PERMANENT)
     {
         $hash   = $this->createEntryHash($cid, $data, $expire);
-        $id     = $this->getKey($cid);
         $maxTtl = $this->getMaxTtl();
 
         switch ($expire) {
 
             case CACHE_PERMANENT:
-                $this->backend->set($id, $hash, $maxTtl, false);
+                $this->backend->set($cid, $hash, $maxTtl, false);
                 break;
 
             case CACHE_TEMPORARY:
-                $this->backend->set($id, $hash, $maxTtl, true);
+                $this->backend->set($cid, $hash, $maxTtl, true);
                 break;
 
             default:
@@ -417,12 +413,12 @@ class Redis_Cache
                     // Entry has already expired, but we may have a stalled
                     // older cache entry remaining there, ensure it wont
                     // happen by doing a preventive delete
-                    $this->backend->delete($id);
+                    $this->backend->delete($cid);
                 } else {
                     if ($maxTtl && $maxTtl < $ttl) {
                         $ttl = $maxTtl;
                     }
-                    $this->backend->set($id, $hash, $ttl, false);
+                    $this->backend->set($cid, $hash, $ttl, false);
                 }
                 break;
         }
@@ -463,7 +459,7 @@ class Redis_Cache
                 // @todo This needs a map algorithm the same way memcache module
                 // implemented it for invalidity by prefixes.
                 if (self::FLUSH_NEVER !== $clearMode) {
-                    $this->backend->deleteByPrefix($this->getKey($cid));
+                    $this->backend->deleteByPrefix($cid);
                 } else {
                     // @todo Very stupid working fallback.
                     $this->lastFlushTimePermanent = $this->lastFlushTimeVolatile = time();
@@ -474,7 +470,7 @@ class Redis_Cache
             $idList = array_map(array($this, 'getKey'), $cid);
             $this->backend->deleteMultiple($idList);
         } else {
-            $this->backend->delete($this->getKey($cid));
+            $this->backend->delete($cid);
         }
     }
 

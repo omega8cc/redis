@@ -83,7 +83,7 @@ abstract class Redis_Lock_DefaultBackend
     if (null === $name) {
       return parent::getKey('lock');
     } else {
-      return parent::getKey('lock:' . $name);
+      return parent::getKey(array('lock', $name));
     }
   }
 }

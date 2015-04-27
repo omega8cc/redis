@@ -48,10 +48,10 @@ class Redis_Path_PhpRedis extends Redis_Path_AbstractHashLookup
         }
 
         if (!empty($source)) {
-            $this->saveInHash($this->getKey(self::KEY_ALIAS, $language), $source, $alias);
+            $this->saveInHash($this->getKey(array(self::KEY_ALIAS, $language)), $source, $alias);
         }
         if (!empty($alias)) {
-            $this->saveInHash($this->getKey(self::KEY_SOURCE, $language), $alias, $source);
+            $this->saveInHash($this->getKey(array(self::KEY_SOURCE, $language)), $alias, $source);
         }
     }
 
@@ -80,15 +80,15 @@ class Redis_Path_PhpRedis extends Redis_Path_AbstractHashLookup
             $language = LANGUAGE_NONE;
         }
 
-        $this->deleteInHash($this->getKey(self::KEY_ALIAS, $language), $source, $alias);
-        $this->deleteInHash($this->getKey(self::KEY_SOURCE, $language), $alias, $source);
+        $this->deleteInHash($this->getKey(array(self::KEY_ALIAS, $language)), $source, $alias);
+        $this->deleteInHash($this->getKey(array(self::KEY_SOURCE, $language)), $alias, $source);
     }
 
     public function deleteLanguage($language)
     {
         $client = $this->getClient();
-        $client->del($this->getKey(self::KEY_ALIAS, $language));
-        $client->del($this->getKey(self::KEY_SOURCE, $language));
+        $client->del($this->getKey(array(self::KEY_ALIAS, $language)));
+        $client->del($this->getKey(array(self::KEY_SOURCE, $language)));
     }
 
     public function lookupInHash($keyPrefix, $hkey, $language = null)
@@ -104,10 +104,10 @@ class Redis_Path_PhpRedis extends Redis_Path_AbstractHashLookup
             $doNoneLookup = true;
         }
 
-        $ret = $client->hget($this->getKey($keyPrefix, $language), $hkey);
+        $ret = $client->hget($this->getKey(array($keyPrefix, $language)), $hkey);
         if ($doNoneLookup && (!$ret || self::VALUE_NULL === $ret)) {
             $previous = $ret;
-            $ret = $client->hget($this->getKey($keyPrefix, LANGUAGE_NONE), $hkey);
+            $ret = $client->hget($this->getKey(array($keyPrefix, LANGUAGE_NONE)), $hkey);
             if (!$ret && $previous) {
                 // Restore null placeholder else we loose conversion to false
                 // and drupal_lookup_path() would attempt saving it once again

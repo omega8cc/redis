@@ -30,8 +30,3 @@ function redis_autoload($class_name) {
 
 // Register our custom autoloader.
 spl_autoload_register('redis_autoload');
-
-// See comment in called method. This is very important.
-if (isset($GLOBALS['conf']['redis_client_interface']) && 'Predis' === $GLOBALS['conf']['redis_client_interface']) {
-  Redis_Client_Predis::setPredisAutoload();
-}

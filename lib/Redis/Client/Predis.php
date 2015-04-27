@@ -88,6 +88,8 @@ class Redis_Client_Predis implements Redis_Client_FactoryInterface {
 
   public function getClient($options = array()) {
 
+    self::setPredisAutoload();
+
     if (!empty($options['socket'])) {
       $options['scheme'] = 'unix';
       $options['path'] = $options['socket'];

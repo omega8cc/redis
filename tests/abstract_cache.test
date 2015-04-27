@@ -31,13 +31,14 @@ abstract class AbstractRedisCacheUnitTestCase extends DrupalUnitTestCase
      */
     final protected function getBackend()
     {
-        $class = $this->getCacheBackendClass();
+        $interface = $this->getCacheBackendClass();
 
-        if (null === $class) {
+        if (null === $interface) {
             throw new \Exception("Test skipped due to missing driver");
         }
 
-        $GLOBALS['conf']['redis_client_interface'] = $class;
+        $GLOBALS['conf']['redis_client_interface'] = $interface;
+        Redis_Client::reset();
         return new Redis_Cache('cache');
     }
 

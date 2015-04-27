@@ -1,42 +1,21 @@
 <?php
 
-spl_autoload_register(function ($className) {
-    $parts = explode('_', $className);
-    if ('Redis' === $parts[0]) {
-        $filename = __DIR__ . '/../lib/' . implode('/', $parts) . '.php';
-        return (bool) include_once $filename;
-    }
-    return false;
-}, null, true);
-
-/**
- * Base implementation for locking functionnal testing.
- */
-abstract class AbstractRedisLockingUnitTestCase extends DrupalUnitTestCase
+abstract class Redis_Tests_Lock_LockingUnitTestCase extends Redis_Tests_AbstractUnitTestCase
 {
     /**
-     * Ensure lock flush at tear down.
+     * Ensure lock flush at tear down
      *
      * @var array
      */
     protected $backends = array();
 
     /**
-     * Set up the Redis configuration.
+     * Get the lock client class name
      *
-     * Set up the needed variables using variable_set() if necessary.
-     *
-     * @return bool
-     *   TRUE in case of success FALSE otherwise.
+     * @return string
+     *   Lock backend class name or null if cannot spawn it
      */
     abstract protected function getLockBackendClass();
-
-    public function setUp()
-    {
-        parent::setUp();
-
-        drupal_install_schema('system');
-    }
 
     public function tearDown()
     {
@@ -47,8 +26,6 @@ abstract class AbstractRedisLockingUnitTestCase extends DrupalUnitTestCase
 
             $this->backends = array();
         }
-
-        drupal_uninstall_schema('system');
 
         parent::tearDown();
     }
@@ -138,72 +115,5 @@ abstract class AbstractRedisLockingUnitTestCase extends DrupalUnitTestCase
         $this->drupalGet('redis/acquire/test2/1');
         $this->assertText("REDIS_FAILED", "Lock test2 could not be acquired by a second thread");
          */
-    }
-}
-
-/**
- * Predis lock testing.
- */
-class PredisLockingUnitTestCase extends AbstractRedisLockingUnitTestCase
-{
-    public static function getInfo()
-    {
-        return array(
-            'name'        => 'Predis Redis locking',
-            'description' => 'Ensure that Redis locking feature is working OK.',
-            'group'       => 'Redis',
-        );
-    }
-
-    protected function getLockBackendClass()
-    {
-        global $conf;
-
-        // FIXME: This is definitely ugly but we have no choice: during unit
-        // testing Drupal will attempt to reach the database if do not prepend
-        // our autoloader manually. We can't do class_exists() calls either,
-        // they will lead to Drupal crash in all case.
-        if (!defined('PREDIS_BASE_PATH')) {
-            define('PREDIS_BASE_PATH', DRUPAL_ROOT . '/sites/all/libraries/predis/lib/');
-        }
-
-        spl_autoload_register(function($className) {
-            $parts = explode('\\', $className);
-            if ('Predis' === $parts[0]) {
-                $filename = PREDIS_BASE_PATH . implode('/', $parts) . '.php';
-                return (bool)include_once $filename;
-            }
-            return false;
-        }, null, true);
-
-        $conf['redis_client_interface'] = 'Predis';
-
-        return 'Redis_Lock_Predis';
-    }
-}
-
-/**
- * PhpRedis lock testing.
- */
-class PhpRedisLockingUnitTestCase extends AbstractRedisLockingUnitTestCase
-{
-    public static function getInfo()
-    {
-        return array(
-            'name'        => 'PhpRedis Redis locking',
-            'description' => 'Ensure that Redis locking feature is working OK.',
-            'group'       => 'Redis',
-        );
-    }
-
-    protected function getLockBackendClass()
-    {
-        global $conf;
-
-        if (extension_loaded('redis') && class_exists('Redis')) {
-            $conf['redis_client_interface'] = 'PhpRedis';
-
-            return 'Redis_Lock_PhpRedis';
-        }
     }
 }

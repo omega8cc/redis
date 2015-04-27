@@ -3,8 +3,18 @@
 /**
  * Bugfixes made over time test class.
  */
-abstract class AbstractRedisCacheFixesUnitTestCase extends AbstractRedisCacheUnitTestCase
+abstract class Redis_Tests_Cache_FixesUnitTestCase extends Redis_Tests_AbstractUnitTestCase
 {
+    /**
+     * Get cache backend
+     *
+     * @return Redis_Cache
+     */
+    final protected function getBackend()
+    {
+        return new Redis_Cache('cache');
+    }
+
     public function testTemporaryCacheExpire()
     {
         global $conf; // We are in unit tests so variable table does not exist.
@@ -117,48 +127,5 @@ abstract class AbstractRedisCacheFixesUnitTestCase extends AbstractRedisCacheUni
         $this->assertEqual(2, $item->data);
         $item = $backend->get('test9');
         $this->assertTrue(empty($item));
-    }
-}
-
-/**
- * Predis cache flush testing.
- */
-class PredisCacheFixesUnitTestCase extends AbstractRedisCacheFixesUnitTestCase
-{
-
-    public static function getInfo()
-    {
-        return array(
-            'name'         => 'Predis cache fixes',
-            'description'  => 'Tests Redis module cache fixes feature.',
-            'group'        => 'Redis',
-        );
-    }
-
-    protected function getCacheBackendClass()
-    {
-        return 'Predis';
-    }
-}
-
-/**
- * PhpRedis cache flush testing.
- */
-class PhpRedisCacheFixesUnitTestCase extends AbstractRedisCacheFixesUnitTestCase
-{
-    public static function getInfo()
-    {
-        return array(
-            'name'        => 'PhpRedis cache fixes',
-            'description' => 'Tests Redis module cache fixes feature.',
-            'group'       => 'Redis',
-        );
-    }
-
-    protected function getCacheBackendClass()
-    {
-        if (extension_loaded('redis') && class_exists('Redis')) {
-            return 'PhpRedis';
-        }
     }
 }

@@ -1,10 +1,17 @@
 <?php
 
-/**
- * Base implementation for locking functionnal testing.
- */
-abstract class AbstractRedisCacheFlushUnitTestCase extends AbstractRedisCacheUnitTestCase
+abstract class Redis_Tests_Cache_FlushUnitTestCase extends Redis_Tests_AbstractUnitTestCase
 {
+    /**
+     * Get cache backend
+     *
+     * @return Redis_Cache
+     */
+    final protected function getBackend()
+    {
+        return new Redis_Cache('cache');
+    }
+
     /**
      * Test that the flush nothing flush mode flushes nothing.
      */
@@ -126,48 +133,5 @@ abstract class AbstractRedisCacheFlushUnitTestCase extends AbstractRedisCacheUni
         }
 
         $this->assertEqual(0, $remaining);
-    }
-}
-
-/**
- * Predis cache flush testing.
- */
-class PredisCacheFlushUnitTestCase extends AbstractRedisCacheFlushUnitTestCase
-{
-
-    public static function getInfo()
-    {
-        return array(
-            'name'         => 'Predis cache flush',
-            'description'  => 'Tests Redis module cache flush modes feature.',
-            'group'        => 'Redis',
-        );
-    }
-
-    protected function getCacheBackendClass()
-    {
-        return 'Predis';
-    }
-}
-
-/**
- * PhpRedis cache flush testing.
- */
-class PhpRedisCacheFlushUnitTestCase extends AbstractRedisCacheFlushUnitTestCase
-{
-    public static function getInfo()
-    {
-        return array(
-            'name'        => 'PhpRedis cache flush',
-            'description' => 'Tests Redis module cache flush modes feature.',
-            'group'       => 'Redis',
-        );
-    }
-
-    protected function getCacheBackendClass()
-    {
-        if (extension_loaded('redis') && class_exists('Redis')) {
-            return 'PhpRedis';
-        }
     }
 }

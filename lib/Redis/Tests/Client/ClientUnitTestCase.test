@@ -1,9 +1,6 @@
 <?php
 
-/**
- * Bugfixes made over time test class.
- */
-class RedisClientUnitTestCase extends DrupalUnitTestCase
+class Redis_Tests_Client_UnitTestCase extends Redis_Tests_AbstractUnitTestCase
 {
     public static function getInfo()
     {
@@ -14,26 +11,15 @@ class RedisClientUnitTestCase extends DrupalUnitTestCase
         );
     }
 
-    public function setUp()
+    protected function getClientInterface()
     {
-        parent::setUp();
-
-        drupal_install_schema('system');
-        drupal_install_schema('locale');
-    }
-
-    public function tearDown()
-    {
-        drupal_uninstall_schema('locale');
-        drupal_uninstall_schema('system');
-
-        parent::tearDown();
+        return 'PhpRedis';
     }
 
     public function getManager()
     {
         return new Redis_Client_Manager(
-            new RedisClientMockFactory(),
+            new Redis_Tests_Client_MockFactory(),
             array(
                 'default' => array(),
                 'foo' => array(
@@ -78,16 +64,3 @@ class RedisClientUnitTestCase extends DrupalUnitTestCase
         }
     }
 }
-
-class RedisClientMockFactory implements Redis_Client_FactoryInterface
-{
-    public function getClient($options = array())
-    {
-        return (object)$options;
-    }
-
-    public function getName()
-    {
-        return 'Mock';
-    }
-} 

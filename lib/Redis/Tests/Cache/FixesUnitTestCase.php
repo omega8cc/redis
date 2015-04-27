@@ -128,4 +128,24 @@ abstract class Redis_Tests_Cache_FixesUnitTestCase extends Redis_Tests_AbstractU
         $item = $backend->get('test9');
         $this->assertTrue(empty($item));
     }
+
+    public function testGetMultipleAlterCidsWhenCacheHitsOnly()
+    {
+        $backend = $this->getBackend();
+
+        $backend->set('test8', 1);
+        $backend->clear('test9');
+
+        $cids_partial_hit = array('test8', 'test9');
+        $backend->getMultiple($cids_partial_hit);
+        // Note that the 1 key is important because the method should
+        // keep the keys synchronized.
+        $this->assertEqual(array(1 => 'test9'), $cids_partial_hit);
+
+        $backend->clear('test8');
+
+        $cids_no_hit = array('test8', 'test9');
+        $backend->getMultiple($cids_no_hit);
+        $this->assertEqual(array('test8', 'test9'), $cids_no_hit);
+    }
 }

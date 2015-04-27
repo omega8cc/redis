@@ -372,8 +372,7 @@ class Redis_Cache
             $this->backend->deleteMultiple($delete);
         }
 
-        // @todo Note sure this will update the referenced array thought.
-        $cids = array_diff($cids, $map);
+        $cids = array_diff($cids, array_keys($ret));
 
         return $ret;
     }

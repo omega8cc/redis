@@ -34,17 +34,17 @@ Once done, you either have to clone it into:
 
 So that you have the following directory tree:
 
-  sites/all/libraries/lib/Predis # Where the PHP code stands
+  sites/all/libraries/predis/src/Client # Where the PHP code stands
 
 Or, any other place in order to share it:
-For example, into your libraries folder, in order to get:
+For example, from your install profiles libraries folder:
 
-  some/dir/predis/lib
+  profiles/example/libraries/predis
 
 If you choose this solution, you have to alter a bit your $conf array into
 the settings.php file as this:
 
-  define('PREDIS_BASE_PATH', DRUPAL_ROOT . '/some/dir/predis/lib/');
+  define('PREDIS_BASE_PATH', DRUPAL_ROOT . '/profiles/example/libraries/predis/');
 
 Connect to a remote host and database
 -------------------------------------

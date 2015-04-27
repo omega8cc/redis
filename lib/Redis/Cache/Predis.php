@@ -117,7 +117,7 @@ class Redis_Cache_Predis extends Redis_Cache_Base
     public function deleteByPrefix($prefix)
     {
         $client = $this->getClient();
-        $ret = $client->eval(self::EVAL_DELETE_PREFIX, array($this->getKey($prefix . '*')));
+        $ret = $client->eval(self::EVAL_DELETE_PREFIX, 1, $this->getKey($prefix . '*'));
         if (1 != $ret) {
             trigger_error(sprintf("EVAL failed: %s", $client->getLastError()), E_USER_ERROR);
         }
@@ -126,7 +126,7 @@ class Redis_Cache_Predis extends Redis_Cache_Base
     public function flush()
     {
         $client = $this->getClient();
-        $ret = $client->eval(self::EVAL_DELETE_PREFIX, array($this->getKey('*')));
+        $ret = $client->eval(self::EVAL_DELETE_PREFIX, 1, $this->getKey('*'));
         if (1 != $ret) {
             trigger_error(sprintf("EVAL failed: %s", $client->getLastError()), E_USER_ERROR);
         }
@@ -135,7 +135,7 @@ class Redis_Cache_Predis extends Redis_Cache_Base
     public function flushVolatile()
     {
         $client = $this->getClient();
-        $ret = $client->eval(self::EVAL_DELETE_VOLATILE, array($this->getKey('*')));
+        $ret = $client->eval(self::EVAL_DELETE_VOLATILE, 1, $this->getKey('*'));
         if (1 != $ret) {
             trigger_error(sprintf("EVAL failed: %s", $client->getLastError()), E_USER_ERROR);
         }

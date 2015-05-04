@@ -108,6 +108,10 @@ class Redis_Client_Predis implements Redis_Client_FactoryInterface {
 
     $client = new \Predis\Client($options);
 
+    if (isset($options['base']) && 0 !== $options['base']) {
+        $client->select((int)$options['base']);
+    }
+
     return $client;
   }
 

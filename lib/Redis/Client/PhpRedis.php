@@ -18,7 +18,7 @@ class Redis_Client_PhpRedis implements Redis_Client_FactoryInterface {
       $client->auth($options['password']);
     }
 
-    if (isset($options['database'])) {
+    if (isset($options['base'])) {
       $client->select($options['base']);
     }
 

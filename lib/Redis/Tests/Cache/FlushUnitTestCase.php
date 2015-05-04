@@ -7,49 +7,20 @@ abstract class Redis_Tests_Cache_FlushUnitTestCase extends Redis_Tests_AbstractU
      *
      * @return Redis_Cache
      */
-    final protected function getBackend()
+    final protected function getBackend($name = 'cache')
     {
-        return new Redis_Cache('cache');
-    }
-
-    /**
-     * Test that the flush nothing flush mode flushes nothing.
-     */
-    public function testFlushIsNothing()
-    {
-        global $conf;
-
-        $conf['redis_flush_mode_cache'] = 0;
-        $backend = $this->getBackend();
-
-        $this->assertEqual(Redis_Cache::FLUSH_NOTHING, $backend->getClearMode());
-
-        $backend->set('test4', 42, CACHE_PERMANENT);
-        $backend->set('test5', 'foo', CACHE_TEMPORARY);
-        $backend->set('test6', 'bar', time() + 10);
-
-        $backend->clear();
-
-        $cache = $backend->get('test4');
-        $this->assertNotEqual(false, $cache);
-        $this->assertEqual($cache->data, 42);
-        $cache = $backend->get('test5');
-        $this->assertNotEqual(false, $cache);
-        $this->assertEqual($cache->data, 'foo');
-        $cache = $backend->get('test6');
-        $this->assertNotEqual(false, $cache);
-        $this->assertEqual($cache->data, 'bar');
+        return new Redis_Cache($name);
     }
 
     /**
      * Tests that with a default cache lifetime temporary non expired
      * items are kept even when in temporary flush mode.
      */
-    public function testFlushIsTemporaryWithLifetime()
+    public function doTestFlushIsTemporaryWithLifetime($flushMode = 0)
     {
         global $conf;
 
-        $conf['redis_flush_mode_cache'] = 1;
+        $conf['redis_flush_mode_cache'] = $flushMode;
         $conf['cache_lifetime'] = 1000;
         $backend = $this->getBackend();
 
@@ -57,7 +28,7 @@ abstract class Redis_Tests_Cache_FlushUnitTestCase extends Redis_Tests_AbstractU
         // behavior when a cache_lifetime is set is to override the backend
         // one in order to keep the core behavior and avoid potential
         // nasty bugs.
-        $this->assertEqual(Redis_Cache::FLUSH_NOTHING, $backend->getClearMode());
+        $this->assertFalse($backend->allowTemporaryFlush());
 
         $backend->set('test7', 42, CACHE_PERMANENT);
         $backend->set('test8', 'foo', CACHE_TEMPORARY);
@@ -80,15 +51,15 @@ abstract class Redis_Tests_Cache_FlushUnitTestCase extends Redis_Tests_AbstractU
      * Tests that with no default cache lifetime all temporary items are
      * droppped when in temporary flush mode.
      */
-    public function testFlushIsTemporaryWithoutLifetime()
+    public function doTestFlushIsTemporaryWithoutLifetime($flushMode = Redis_Cache::FLUSH_NORMAL)
     {
         global $conf;
 
-        $conf['redis_flush_mode_cache'] = 1;
+        $conf['redis_flush_mode_cache'] = $flushMode;
         $conf['cache_lifetime'] = 0;
         $backend = $this->getBackend();
 
-        $this->assertEqual(Redis_Cache::FLUSH_TEMPORARY, $backend->getClearMode());
+        $this->assertTrue($backend->allowTemporaryFlush());
 
         $backend->set('test10', 42, CACHE_PERMANENT);
         $backend->set('test11', 'foo', CACHE_TEMPORARY);
@@ -104,34 +75,71 @@ abstract class Redis_Tests_Cache_FlushUnitTestCase extends Redis_Tests_AbstractU
         $this->assertNotEqual(false, $cache);
     }
 
-    /**
-     * Flushing more than 20 elements should switch to a pipeline that
-     * sends multiple DEL batches.
-     */
-    public function testFlushALot()
+    public function doTestNormalFlushing($flushMode = Redis_Cache::FLUSH_NORMAL)
     {
         global $conf;
 
-        $conf['redis_flush_mode_cache'] = 2;
-        $backend = $this->getBackend();
+        $conf['redis_flush_mode_cache'] = $flushMode;
+        $conf['cache_lifetime'] = 0;
+        $backend = $this->getBackend('cache_foo');
+        $backendUntouched = $this->getBackend('cache_bar');
 
-        $cids = array();
+        // Set a few entries.
+        $backend->set('test13', 'foo');
+        $backend->set('test14', 'bar', CACHE_TEMPORARY);
+        $backend->set('test15', 'baz', time() + 3);
 
-        for ($i = 0; $i < 10000; ++$i) {
-            $cids[] = $cid = 'test' . $i;
-            $backend->set($cid, 42, CACHE_PERMANENT);
-        }
+        $backendUntouched->set('test16', 'dog');
+        $backendUntouched->set('test17', 'cat', CACHE_TEMPORARY);
+        $backendUntouched->set('test18', 'xor', time() + 5);
 
+        // This should not do anything (bugguy command)
+        $backend->clear('', true);
+        $backend->clear('', false);
+        $this->assertNotIdentical(false, $backend->get('test13'));
+        $this->assertNotIdentical(false, $backend->get('test14'));
+        $this->assertNotIdentical(false, $backend->get('test15'));
+        $this->assertNotIdentical(false, $backendUntouched->get('test16'));
+        $this->assertNotIdentical(false, $backendUntouched->get('test17'));
+        $this->assertNotIdentical(false, $backendUntouched->get('test18'));
+
+        // This should clear every one, permanent and volatile
         $backend->clear('*', true);
+        $this->assertFalse($backend->get('test13'));
+        $this->assertFalse($backend->get('test14'));
+        $this->assertFalse($backend->get('test15'));
+        $this->assertNotIdentical(false, $backendUntouched->get('test16'));
+        $this->assertNotIdentical(false, $backendUntouched->get('test17'));
+        $this->assertNotIdentical(false, $backendUntouched->get('test18'));
+    }
 
-        $remaining = 0;
-        foreach ($cids as $cid) {
-            $cached = $backend->get($cid);
-            if (false !== $cached) {
-                $remaining++;
-            }
-        }
+    public function testShardedLifeTime()
+    {
+        $this->doTestFlushIsTemporaryWithLifetime(Redis_Cache::FLUSH_SHARD);
+    }
 
-        $this->assertEqual(0, $remaining);
+    public function testShardedWithoutLifeTime()
+    {
+        $this->doTestFlushIsTemporaryWithoutLifetime(Redis_Cache::FLUSH_SHARD);
+    }
+
+    public function testNormalLifeTime()
+    {
+        $this->doTestFlushIsTemporaryWithLifetime(Redis_Cache::FLUSH_NORMAL);
+    }
+
+    public function testNormalWithoutLifeTime()
+    {
+        $this->doTestFlushIsTemporaryWithoutLifetime(Redis_Cache::FLUSH_NORMAL);
+    }
+
+    public function testShardedNormalFlush()
+    {
+        $this->doTestNormalFlushing(Redis_Cache::FLUSH_SHARD);
+    }
+
+    public function testNormalFlush()
+    {
+        $this->doTestNormalFlushing(Redis_Cache::FLUSH_NORMAL);
     }
 }

@@ -227,49 +227,35 @@ Note that this last notice is Redis only specific, because per default Redis
 server will not namespace data, thus sharing an instance for multiple sites
 will create conflicts. This is not true for every contributed backends.
 
-Flush mode
-----------
+Sharding vs normal mode
+-----------------------
 
-Redis allows to set a time-to-live at the key level, which frees us from
-handling the garbage collection at clear() calls; Unfortunately Drupal never
-explicitely clears single cached pages or blocks. If you didn't configure the
-"cache_lifetime" core variable, its value is "0" which means that temporary
-items never expire: in this specific case, we need to adopt a different
-behavior than leting Redis handling the TTL by itself; This is why we have
-three different implementations of the flush algorithm you can use:
+Per default the Redis cache backend will be in "normal" mode, meaning that
+every flush call will trigger and EVAL lua script that will proceed to cache
+wipeout and cleanup the Redis database from stalled entries.
 
- * 0: Never flush temporary: leave Redis handling the TTL; This mode is
-   not compatible for the "page" and "block" bins but is the default for
-   all others.
+Nevertheless, if you are working with a Redis server < 2.6 or in a sharded
+environment, you cannot multiple keys per command nor proceed to EVAL'ed
+scripts, you will then need to switch to the sharded mode.
 
- * 1: Keep a copy of temporary items identifiers in a SET and flush them
-   accordingly to spec (DatabaseCache default backend mimic behavior):
-   this is the default behavior for all bin.
+Sharded mode will never delete entries on flush calls, but register a key
+with the current flush time instead. Cache entries will then be deleted on
+read if the entry checksum does not match or is older than the latest flush
+call. Note that this mode is fast and safe, but must be used accordingly
+with the default lifetime for permanent items, else your Redis server might
+keep stalled entries into its database forever.
 
- * 3: Never flush anything but use an internal variable to proceed to cache
-   entries eviction at read time. Use this when you experience performance
-   problems while clearing the cache or when you use proxy assisted sharding
-   since this will deactivate the EVAL command.
+In order to enable the sharded mode, set into your settings.php file:
 
-You can configure a default flush mode which will override the sensible
-provided defaults by setting the 'redis_flush_mode' variable.
+    $conf['redis_flush_mode'] = 3;
 
-  // For example this is the safer mode.
-  $conf['redis_flush_mode'] = 1;
+Please note that the value 3 is there to keep backward compatibility with
+older versions of the Redis module and will not change.
 
-But you may also want to change the behavior for only a few bins.
-
-  // This will put mode 0 on "bootstrap" bin.
-  $conf['redis_flush_mode_cache_bootstrap'] = 0;
-
-  // And mode 3 to "page" bin.
-  $conf['redis_flush_mode_cache_page'] = 3;
-
-Note that you must prefix your bins with "cache" as the Drupal 7 bin naming
-convention requires it.
-
-Keep in mind that defaults will provide the best balance between performance
-and safety for most sites; Non advanced users should ever change them.
+Note that previous Redis module version allowed to set a per-bin setting for
+the clear mode value; nevertheless the clear mode is not a valid setting
+anymore and the past issues have been resolved. Only the global value will
+work as of now.
 
 Default lifetime for permanent items
 ------------------------------------

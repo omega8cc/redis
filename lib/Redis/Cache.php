@@ -4,9 +4,6 @@
  * Because those objects will be spawned during boostrap all its configuration
  * must be set in the settings.php file.
  *
- * For a detailed history of flush modes see:
- *   https://drupal.org/node/1980250
- *
  * You will find the driver specific implementation in the Redis_Cache_*
  * classes as they may differ in how the API handles transaction, pipelining
  * and return values.
@@ -15,56 +12,29 @@ class Redis_Cache
     implements DrupalCacheInterface
 {
     /**
-     * Temporary cache items lifetime is infinite.
-     */
-    const LIFETIME_INFINITE = 0;
-
-    /**
-     * Default temporary cache items lifetime.
-     */
-    const LIFETIME_DEFAULT = 0;
-
-    /**
      * Default lifetime for permanent items.
      * Approximatively 1 year.
      */
     const LIFETIME_PERM_DEFAULT = 31536000;
 
     /**
-     * Flush nothing on generic clear().
+     * Uses EVAL scripts to flush data when called
      *
-     * Because Redis handles keys TTL by itself we don't need to pragmatically
-     * flush items by ourselves in most case: only 2 exceptions are the "page"
-     * and "block" bins which are never expired manually outside of cron.
+     * This remains the default behavior and is safe until you use a single
+     * Redis server instance and its version is >= 2.6 (older version don't
+     * support EVAL).
      */
-    const FLUSH_NOTHING = 0;
+    const FLUSH_NORMAL = 0;
 
     /**
-     * Flush only temporary on generic clear().
+     * Never flush anything, and let Redis handle entries TTL
      *
-     * This dictate the cache backend to behave as the DatabaseCache default
-     * implementation. This behavior is not documented anywere but hardcoded
-     * there.
+     * This mode is tailored for sharded Redis servers instances usage: it
+     * will never delete entries but only mark the latest flush timestamp
+     * into one of the servers in the shard. It will proceed to delete on
+     * read single entries when invalid entries are being loaded.
      */
-    const FLUSH_TEMPORARY = 1;
-
-    /**
-     * This value is never used and only kept for configuration backward
-     * compatibility. Please do never use this value for other configuration
-     * constant.
-     */
-    const FLUSH_ALL = 2;
-
-    /**
-     * Never flush anything
-     *
-     * If you use your Redis server configured with LRU mecanism set on
-     * volatile keys and if you have the default value or a maximum lifetime
-     * set on you permanent entries, you can safely set your flush mode to
-     * this one: it will never ever try to delete entries on flush but will
-     * rely on runtime checks while reading the keys.
-     */
-    const FLUSH_NEVER = 3;
+    const FLUSH_SHARD = 3;
 
     /**
      * Computed keys are let's say arround 60 characters length due to
@@ -88,9 +58,22 @@ class Redis_Cache
     protected $bin;
 
     /**
-     * @var int
+     * When the global 'cache_lifetime' Drupal variable is set to a value, the
+     * cache backends should not expire temporary entries by themselves per
+     * Drupal signature. Volatile items will be dropped accordingly to their
+     * set lifetime.
+     *
+     * @var boolean
      */
-    protected $clearMode = self::FLUSH_TEMPORARY;
+    protected $allowTemporaryFlush = true;
+
+    /**
+     * When in shard mode, the backend cannot proceed to multiple keys
+     * operations, and won't delete keys on flush calls.
+     *
+     * @var boolean
+     */
+    protected $isSharded = false;
 
     /**
      * Default TTL for CACHE_PERMANENT items.
@@ -110,14 +93,23 @@ class Redis_Cache
     protected $maxTtl = 0;
 
     /**
-     * Get clear mode.
+     * Is this bin in shard mode
      *
-     * @return int
-     *   One of the Redis_Cache_Base::FLUSH_* constant.
+     * @return boolean
      */
-    public function getClearMode()
+    public function isSharded()
     {
-        return $this->clearMode;
+        return $this->isSharded;
+    }
+
+    /**
+     * Does this bin allow temporary item flush
+     *
+     * @return boolean
+     */
+    public function allowTemporaryFlush()
+    {
+        return $this->allowTemporaryFlush;
     }
 
     /**
@@ -149,7 +141,7 @@ class Redis_Cache
         $className = Redis_Client::getClass(Redis_Client::REDIS_IMPL_CACHE);
         $this->backend = new $className(Redis_Client::getClient(), $bin, Redis_Client::getDefaultPrefix($bin));
 
-        $this->refreshClearMode();
+        $this->refreshCapabilities();
         $this->refreshPermTtl();
         $this->refreshMaxTtl();
     }
@@ -157,35 +149,22 @@ class Redis_Cache
     /**
      * Find from Drupal variables the clear mode.
      */
-    public function refreshClearMode()
+    public function refreshCapabilities()
     {
         if (0 < variable_get('cache_lifetime', 0)) {
             // Per Drupal default behavior, when the 'cache_lifetime' variable
             // is set we must not flush any temporary items since they have a
             // life time.
-            $this->clearMode = self::FLUSH_NOTHING;
-        } else if (null !== ($mode = variable_get('redis_flush_mode_' . $this->bin, null))) {
-            // A bin specific flush mode has been set.
-            $this->clearMode = (int)$mode;
-        } else if (null !== ($mode = variable_get('redis_flush_mode', null))) {
-            // A site wide generic flush mode has been set.
-            $this->clearMode = (int)$mode;
-        } else {
-            // No flush mode is set by configuration: provide sensible defaults.
-            // See FLUSH_* constants for comprehensible explaination of why this
-            // exists.
-            switch ($this->bin) {
-
-                case 'cache_page':
-                case 'cache_block':
-                    $this->clearMode = self::FLUSH_TEMPORARY;
-                    break;
-
-                default:
-                    $this->clearMode = self::FLUSH_NOTHING;
-                    break;
-            }
+            $this->allowTemporaryFlush = false;
         }
+
+        if (null !== ($mode = variable_get('redis_flush_mode', null))) {
+            $mode = (int)$mode;
+        } else {
+            $mode = self::FLUSH_NORMAL;
+        }
+
+        $this->isSharded = self::FLUSH_SHARD === $mode;
     }
 
     /**
@@ -303,7 +282,7 @@ class Redis_Cache
         }
 
         // Ensure the entry does not predate the last flush time.
-        if ($values['volatile']) {
+        if ($this->allowTemporaryFlush && $values['volatile']) {
             $validityThreshold = $flushVolatile;
         } else {
             $validityThreshold = $flushPerm;
@@ -412,51 +391,39 @@ class Redis_Cache
 
     public function clear($cid = null, $wildcard = false)
     {
-        $clearMode = $this->getClearMode();
-
         // This is only for readability
         $backend = $this->backend;
 
         list($flushPerm, $flushVolatile) = $this->backend->getLastFlushTime();
 
         if (null === $cid && !$wildcard) {
-            switch ($clearMode) {
+            // Drupal asked for volatile entries flush, this will happen
+            // during cron run, mostly
+            $backend->setLastFlushTimeFor($this->getNextIncrement($flushVolatile), true);
 
-                // One and only case of early return, fastest implementation
-                // business valid for anything else than 'page' and 'block'.
-                case self::FLUSH_NEVER:
-                case self::FLUSH_NOTHING:
-                    $backend->setLastFlushTimeFor($this->getNextIncrement($flushVolatile), true);
-                    break;
-
-                // Drupal default behavior but slowest implementation for
-                // most backends because this needs a full scan.
-                default:
-                case self::FLUSH_TEMPORARY:
-                    $this->backend->flushVolatile();
-                    break;
+            if (!$this->isSharded && $this->allowTemporaryFlush) {
+                $this->backend->flushVolatile();
             }
         } else if ($wildcard) {
-
             if (empty($cid)) {
                 // This seems to be an error, just do nothing.
+                return;
+            }
 
-            } else if ('*' === $cid) {
-
-                // Use max() to ensure we invalidate both correctly.
+            if ('*' === $cid) {
+                // Use max() to ensure we invalidate both correctly
                 $this->backend->setLastFlushTimeFor(max(array($flushPerm, $flushVolatile)));
 
-                if (self::FLUSH_NEVER !== $clearMode) {
-                    $this->backend->flush();
+                if (!$this->isSharded) {
+                      $this->backend->flush();
                 }
             } else {
-
-                // @todo This needs a map algorithm the same way memcache module
-                // implemented it for invalidity by prefixes.
-                if (self::FLUSH_NEVER !== $clearMode) {
+                if (!$this->isSharded) {
                     $this->backend->deleteByPrefix($cid);
                 } else {
-                    // @todo Very stupid working fallback.
+                    // @todo This needs a map algorithm the same way memcache
+                    // module implemented it for invalidity by prefixes. This
+                    // is a very stupid fallback
                     $this->backend->setLastFlushTimeFor(max(array($flushPerm, $flushVolatile)));
                 }
             }

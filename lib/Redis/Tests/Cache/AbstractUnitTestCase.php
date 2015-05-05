@@ -10,7 +10,7 @@ abstract class Redis_Tests_Cache_AbstractUnitTestCase extends Redis_Tests_Abstra
     /**
      * Get cache backend
      *
-     * @return DrupalCacheInterface
+     * @return Redis_Cache_Base
      */
     final protected function getBackend()
     {

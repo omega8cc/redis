@@ -112,6 +112,71 @@ abstract class Redis_Tests_Cache_AbstractFlushUnitTestCase extends Redis_Tests_C
         $this->assertFalse($backend->get('test12'));
     }
 
+    public function testFlushALotWithEval()
+    {
+        global $conf;
+
+        $conf['redis_eval_enabled'] = true;
+        $conf['redis_flush_mode_cache'] = 2;
+        $backend = $this->getBackend();
+
+        $this->assertTrue($backend->canUseEval());
+
+        $cids = array();
+
+        for ($i = 0; $i < 30; ++$i) {
+          $cids[] = $cid = 'test' . $i;
+          $backend->set($cid, 42, CACHE_PERMANENT);
+        }
+
+        $backend->clear('*', true);
+
+        foreach ($cids as $cid) {
+          $this->assertFalse($backend->get($cid));
+        }
+    }
+
+    public function doTestFlushPrefix($withEval)
+    {
+        global $conf;
+
+        $conf['redis_eval_enabled'] = $withEval;
+        $conf['redis_flush_mode_cache'] = 2;
+        $backend = $this->getBackend();
+        $this->assertEqual($withEval, $backend->canUseEval());
+
+        $backend->set('testprefix10', 'foo');
+        $backend->set('testprefix11', 'foo');
+        $backend->set('testprefix:12', 'bar');
+        $backend->set('testprefix:13', 'baz');
+        $backend->set('testnoprefix14', 'giraffe');
+        $backend->set('testnoprefix:15', 'elephant');
+
+        $backend->clear('testprefix:', true);
+        $this->assertFalse($backend->get('testprefix:12'));
+        $this->assertFalse($backend->get('testprefix:13'));
+        $this->assertNotIdentical(false, $backend->get('testprefix10'));
+        $this->assertNotIdentical(false, $backend->get('testprefix11'));
+        $this->assertNotIdentical(false, $backend->get('testnoprefix14'));
+        $this->assertNotIdentical(false, $backend->get('testnoprefix:15'));
+
+        $backend->clear('testprefix', true);
+        $this->assertFalse($backend->get('testprefix10'));
+        $this->assertFalse($backend->get('testprefix11'));
+        $this->assertNotIdentical(false, $backend->get('testnoprefix14'));
+        $this->assertNotIdentical(false, $backend->get('testnoprefix:15'));
+    }
+
+    public function testFlushPrefixWithEval()
+    {
+        $this->doTestFlushPrefix(true);
+    }
+
+    public function testFlushPrefixWithoutEval()
+    {
+        $this->doTestFlushPrefix(false);
+    }
+
     /**
      * Flushing more than 20 elements should switch to a pipeline that
      * sends multiple DEL batches.

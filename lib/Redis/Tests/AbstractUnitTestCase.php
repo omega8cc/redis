@@ -73,6 +73,7 @@ abstract class Redis_Tests_AbstractUnitTestCase extends DrupalUnitTestCase
         unset(
             $conf['cache_lifetime'],
             $conf['redis_client_interface'],
+            $conf['redis_eval_enabled'],
             $conf['redis_flush_mode'],
             $conf['redis_perm_ttl']
         );

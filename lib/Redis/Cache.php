@@ -350,7 +350,6 @@ class Redis_Cache
      */
     public function getMultiple(&$cids)
     {
-        $map    = drupal_map_assoc($cids);
         $ret    = array();
         $delete = array();
 
@@ -358,27 +357,26 @@ class Redis_Cache
             $entries = array();
             foreach ($cids as $cid) {
                 if ($entry = $this->backend->get($cid)) {
-                    $entries[] = $entry;
+                    $entries[$cid] = $entry;
                 }
             }
         } else {
-            $entries = $this->backend->getMultiple($map);
+            $entries = $this->backend->getMultiple($cids);
         }
 
         list($flushPerm, $flushVolatile) = $this->getLastFlushTime();
 
-        $map = array_flip($map);
-        if (!empty($entries)) {
-            foreach ($entries as $id => $values) {
-
-                $entry = $this->expandEntry($values, $flushPerm, $flushVolatile);
-
-                if (empty($entry)) {
-                    $delete[] = $map[$id];
-                    unset($map[$id]);
-                } else {
-                    $ret[$map[$id]] = $entry;
-                }
+        foreach ($cids as $key => $cid) {
+            if (!empty($entries[$cid])) {
+                $entry = $this->expandEntry($entries[$cid], $flushPerm, $flushVolatile);
+            } else {
+                $entry = null;
+            }
+            if (empty($entry)) {
+                $delete[] = $cid;
+            } else {
+                $ret[$key] = $entry;
+                unset($cids[$key]);
             }
         }
 
@@ -391,8 +389,6 @@ class Redis_Cache
                 $this->backend->deleteMultiple($delete);
             }
         }
-
-        $cids = array_diff($cids, array_keys($ret));
 
         return $ret;
     }

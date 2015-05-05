@@ -145,20 +145,22 @@ abstract class Redis_Tests_Cache_FixesUnitTestCase extends Redis_Tests_AbstractU
     public function testGetMultipleAlterCidsWhenCacheHitsOnly()
     {
         $backend = $this->getBackend();
+        $backend->clear('*', true); // It seems that there are leftovers.
 
-        $backend->set('test8', 1);
-        $backend->clear('test9');
+        $backend->set('mtest1', 'pouf');
 
-        $cids_partial_hit = array('test8', 'test9');
-        $backend->getMultiple($cids_partial_hit);
-        // Note that the 1 key is important because the method should
+        $cids_partial_hit = array('foo' => 'mtest1', 'bar' => 'mtest2');
+        $entries = $backend->getMultiple($cids_partial_hit);
+        $this->assertIdentical(1, count($entries));
+        // Note that the key is important because the method should
         // keep the keys synchronized.
-        $this->assertEqual(array(1 => 'test9'), $cids_partial_hit);
+        $this->assertEqual(array('bar' => 'mtest2'), $cids_partial_hit);
 
-        $backend->clear('test8');
+        $backend->clear('mtest1');
 
-        $cids_no_hit = array('test8', 'test9');
-        $backend->getMultiple($cids_no_hit);
-        $this->assertEqual(array('test8', 'test9'), $cids_no_hit);
+        $cids_no_hit = array('cat' => 'mtest1', 'dog' => 'mtest2');
+        $entries = $backend->getMultiple($cids_no_hit);
+        $this->assertIdentical(0, count($entries));
+        $this->assertEqual(array('cat' => 'mtest1', 'dog' => 'mtest2'), $cids_no_hit);
     }
 }

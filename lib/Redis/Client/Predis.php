@@ -11,6 +11,21 @@ class Redis_Client_Predis implements Redis_Client_Interface {
   static protected $autoloaderRegistered = false;
 
   /**
+   * Predis version major.
+   */
+  static protected $predisVersionMajor = 1;
+
+  /**
+   * Get predis version major.
+   *
+   * @return int
+   */
+  static public function getPredisVersionMajor()
+  {
+      return self::$predisVersionMajor;
+  }
+
+  /**
    * Define Predis base path if not already set, and if we need to set the
    * autoloader by ourself. This will ensure no crash. Best way would have
    * been that Drupal ships a PSR-0 autoloader, in which we could manually
@@ -48,10 +63,10 @@ class Redis_Client_Predis implements Redis_Client_Interface {
       }
 
       if (is_dir($search . '/src')) { // Predis v1.x
-        define('PREDIS_VERSION_MAJOR', 1);
+        self::$predisVersionMajor = 1;
         define('PREDIS_BASE_PATH', $search);
       } else if (is_dir($search . '/lib')) { // Predis v0.x
-        define('PREDIS_VERSION_MAJOR', 0);
+        self::$predisVersionMajor = 0;
         define('PREDIS_BASE_PATH', $search);
       } else {
         throw new Exception("PREDIS_BASE_PATH constant must be set, Predis library must live in sites/all/libraries/predis.");
@@ -59,7 +74,7 @@ class Redis_Client_Predis implements Redis_Client_Interface {
 
       // Register a simple autoloader for Predis library. Since the Predis
       // library is PHP 5.3 only, we can afford doing closures safely.
-      switch (PREDIS_VERSION_MAJOR) {
+      switch (self::$predisVersionMajor) {
 
         case 0:
           spl_autoload_register(function($classname) { // PSR-0 autoloader.

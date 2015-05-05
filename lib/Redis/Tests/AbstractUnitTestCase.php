@@ -64,6 +64,18 @@ abstract class Redis_Tests_AbstractUnitTestCase extends DrupalUnitTestCase
     public function setUp()
     {
         self::enableAutoload();
+
+        // Site on which the tests are running may define this variable
+        // in their own settings.php file case in which it will be merged
+        // with testing site
+        global $conf;
+        unset(
+          $conf['cache_lifetime'],
+          $conf['redis_client_interface'],
+          $conf['redis_flush_mode']
+          // $conf['redis_servers']
+        );
+
         $this->prepareClientManager();
         parent::setUp();
         drupal_install_schema('system');

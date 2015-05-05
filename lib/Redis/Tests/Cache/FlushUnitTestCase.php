@@ -3,12 +3,23 @@
 abstract class Redis_Tests_Cache_FlushUnitTestCase extends Redis_Tests_AbstractUnitTestCase
 {
     /**
+     * @var Cache bin identifier
+     */
+    static private $id = 1;
+
+    /**
      * Get cache backend
      *
      * @return Redis_Cache
      */
-    final protected function getBackend($name = 'cache')
+    final protected function getBackend($name = null)
     {
+        if (null === $name) {
+            // This is needed to avoid conflict between tests, each test
+            // seems to use the same Redis namespace and conflicts are
+            // possible.
+            $name = 'cache' . (self::$id++);
+        }
         return new Redis_Cache($name);
     }
 
@@ -20,7 +31,7 @@ abstract class Redis_Tests_Cache_FlushUnitTestCase extends Redis_Tests_AbstractU
     {
         global $conf;
 
-        $conf['redis_flush_mode_cache'] = $flushMode;
+        $conf['redis_flush_mode'] = $flushMode;
         $conf['cache_lifetime'] = 1000;
         $backend = $this->getBackend();
 
@@ -55,15 +66,18 @@ abstract class Redis_Tests_Cache_FlushUnitTestCase extends Redis_Tests_AbstractU
     {
         global $conf;
 
-        $conf['redis_flush_mode_cache'] = $flushMode;
+        $conf['redis_flush_mode'] = $flushMode;
         $conf['cache_lifetime'] = 0;
         $backend = $this->getBackend();
 
         $this->assertTrue($backend->allowTemporaryFlush());
 
         $backend->set('test10', 42, CACHE_PERMANENT);
-        $backend->set('test11', 'foo', CACHE_TEMPORARY);
-        $backend->set('test12', 'bar', time() + 10);
+        // Ugly concatenation with the mode, but it will be visible in tests
+        // reports if the entry shows up, thus allowing us to know which real
+        // test case is run at this time
+        $backend->set('test11', 'foo' . $flushMode, CACHE_TEMPORARY);
+        $backend->set('test12', 'bar' . $flushMode, time() + 10);
 
         $backend->clear();
 
@@ -71,6 +85,7 @@ abstract class Redis_Tests_Cache_FlushUnitTestCase extends Redis_Tests_AbstractU
         $this->assertNotEqual(false, $cache);
         $this->assertEqual($cache->data, 42);
         $this->assertFalse($backend->get('test11'));
+
         $cache = $backend->get('test12');
         $this->assertNotEqual(false, $cache);
     }
@@ -79,10 +94,10 @@ abstract class Redis_Tests_Cache_FlushUnitTestCase extends Redis_Tests_AbstractU
     {
         global $conf;
 
-        $conf['redis_flush_mode_cache'] = $flushMode;
+        $conf['redis_flush_mode'] = $flushMode;
         $conf['cache_lifetime'] = 0;
-        $backend = $this->getBackend('cache_foo');
-        $backendUntouched = $this->getBackend('cache_bar');
+        $backend = $this->getBackend();
+        $backendUntouched = $this->getBackend();
 
         // Set a few entries.
         $backend->set('test13', 'foo');
@@ -113,6 +128,67 @@ abstract class Redis_Tests_Cache_FlushUnitTestCase extends Redis_Tests_AbstractU
         $this->assertNotIdentical(false, $backendUntouched->get('test18'));
     }
 
+    public function doTestPrefixDeletionWithSeparatorChar($flushMode = Redis_Cache::FLUSH_NORMAL)
+    {
+        global $conf;
+
+        $conf['redis_flush_mode'] = $flushMode;
+        $conf['cache_lifetime'] = 0;
+        $backend = $this->getBackend();
+
+        $backend->set('testprefix10', 'foo');
+        $backend->set('testprefix11', 'foo');
+        $backend->set('testprefix:12', 'bar');
+        $backend->set('testprefix:13', 'baz');
+        $backend->set('testnoprefix14', 'giraffe');
+        $backend->set('testnoprefix:15', 'elephant');
+
+        $backend->clear('testprefix:', true);
+        $this->assertFalse($backend->get('testprefix:12'));
+        $this->assertFalse($backend->get('testprefix:13'));
+        // @todo Temporary fix
+        // At the moment shard enabled backends will erase all data instead
+        // of just removing by prefix, so those tests won't pass
+        if ($flushMode !== Redis_Cache::FLUSH_SHARD) {
+            $this->assertNotIdentical(false, $backend->get('testprefix10'));
+            $this->assertNotIdentical(false, $backend->get('testprefix11'));
+            $this->assertNotIdentical(false, $backend->get('testnoprefix14'));
+            $this->assertNotIdentical(false, $backend->get('testnoprefix:15'));
+        }
+
+        $backend->clear('testprefix', true);
+        $this->assertFalse($backend->get('testprefix10'));
+        $this->assertFalse($backend->get('testprefix11'));
+        // @todo Temporary fix
+        // At the moment shard enabled backends will erase all data instead
+        // of just removing by prefix, so those tests won't pass
+        if ($flushMode !== Redis_Cache::FLUSH_SHARD) {
+            $this->assertNotIdentical(false, $backend->get('testnoprefix14'));
+            $this->assertNotIdentical(false, $backend->get('testnoprefix:15'));
+        }
+    }
+
+    public function doTestOrder($flushMode = Redis_Cache::FLUSH_NORMAL)
+    {
+        global $conf;
+
+        $conf['redis_flush_mode'] = $flushMode;
+        $conf['cache_lifetime'] = 0;
+        $backend = $this->getBackend();
+
+        for ($i = 0; $i < 10; ++$i) {
+            $id = 'speedtest' . $i;
+            $backend->set($id, 'somevalue');
+            $this->assertNotIdentical(false, $backend->get($id));
+            $backend->clear('*', true);
+            // Value created the same second before is dropped
+            $this->assertFalse($backend->get($id));
+            $backend->set($id, 'somevalue');
+            // Value created the same second after is kept
+            $this->assertNotIdentical(false, $backend->get($id));
+        }
+    }
+
     public function testShardedLifeTime()
     {
         $this->doTestFlushIsTemporaryWithLifetime(Redis_Cache::FLUSH_SHARD);
@@ -141,5 +217,25 @@ abstract class Redis_Tests_Cache_FlushUnitTestCase extends Redis_Tests_AbstractU
     public function testNormalFlush()
     {
         $this->doTestNormalFlushing(Redis_Cache::FLUSH_NORMAL);
+    }
+
+    public function testShardedPrefixDeletionWithSeparatorChar()
+    {
+        $this->doTestPrefixDeletionWithSeparatorChar(Redis_Cache::FLUSH_SHARD);
+    }
+
+    public function testPrefixDeletionWithSeparatorChar()
+    {
+        $this->doTestPrefixDeletionWithSeparatorChar(Redis_Cache::FLUSH_NORMAL);
+    }
+
+    public function testShardedOrder()
+    {
+        $this->doTestOrder(Redis_Cache::FLUSH_SHARD);
+    }
+
+    public function testOrder()
+    {
+        $this->doTestOrder(Redis_Cache::FLUSH_NORMAL);
     }
 }

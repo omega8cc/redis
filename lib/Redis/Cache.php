@@ -212,7 +212,31 @@ class Redis_Cache
     }
 
     /**
-     * Create cache entry.
+     * Get latest flush time
+     *
+     * @return string[]
+     *   First value is the latest flush time for permanent entries checksum,
+     *   second value is the latest flush time for volatile entries checksum.
+     */
+    public function getLastFlushTime()
+    {
+        list($flushPerm, $flushVolatile) = $this->backend->getLastFlushTime();
+
+        // At the very first hit, we might not have the timestamps set, thus
+        // we need to create them to avoid our entry being considered as
+        // invalid
+        if (!$flushPerm) {
+            $this->backend->setLastFlushTimeFor($flushPerm = $this->getValidChecksum(), false);
+        }
+        if (!$flushVolatile) {
+            $this->backend->setLastFlushTimeFor($flushVolatile = $this->getValidChecksum(), false);
+        }
+
+        return array($flushPerm, $flushVolatile);
+    }
+
+    /**
+     * Create cache entry
      *
      * @param string $cid
      * @param mixed $data
@@ -221,7 +245,7 @@ class Redis_Cache
      */
     protected function createEntryHash($cid, $data, $expire = CACHE_PERMANENT)
     {
-        list($flushPerm, $flushVolatile) = $this->backend->getLastFlushTime();
+        list($flushPerm, $flushVolatile) = $this->getLastFlushTime();
 
         if (CACHE_TEMPORARY === $expire) {
             $validityThreshold = max(array($flushVolatile, $flushPerm));
@@ -229,13 +253,7 @@ class Redis_Cache
             $validityThreshold = $flushPerm;
         }
 
-        $time = time();
-        if ($time === (int)$validityThreshold) {
-            // Latest flush happened the exact same second.
-            $time = $validityThreshold;
-        } else {
-            $time = $this->getNextIncrement($time);
-        }
+        $time = $this->getValidChecksum($validityThreshold);
 
         $hash = array(
             'cid'     => $cid,
@@ -256,9 +274,10 @@ class Redis_Cache
     }
 
     /**
-     * Expand cache entry from fetched data.
+     * Expand cache entry from fetched data
      *
      * @param array $values
+     *   Raw values fetched from Redis server data
      *
      * @return array
      *   Or FALSE if entry is invalid
@@ -273,9 +292,8 @@ class Redis_Cache
         // This ensures backward compatibility with older version of
         // this module's data still stored in Redis.
         if (isset($values['expire'])) {
-            // Ensure the entry is valid and have not expired.
             $expire = (int)$values['expire'];
-
+            // Ensure the entry is valid and have not expired.
             if ($expire !== CACHE_PERMANENT && $expire !== CACHE_TEMPORARY && $expire <= time()) {
                 return false;
             }
@@ -283,16 +301,19 @@ class Redis_Cache
 
         // Ensure the entry does not predate the last flush time.
         if ($this->allowTemporaryFlush && $values['volatile']) {
-            $validityThreshold = $flushVolatile;
+            $validityThreshold = max(array($flushPerm, $flushVolatile));
         } else {
             $validityThreshold = $flushPerm;
         }
 
-        if ($values['created'] < $validityThreshold) {
+        if ($values['created'] <= $validityThreshold) {
             return false;
         }
 
         $entry = (object)$values;
+
+        // Reduce the checksum to the real timestamp part
+        $entry->created = (int)$entry->created;
 
         if ($entry->serialized) {
             $entry->data = unserialize($entry->data);
@@ -301,6 +322,9 @@ class Redis_Cache
         return $entry;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function get($cid)
     {
         $values = $this->backend->get($cid);
@@ -309,7 +333,7 @@ class Redis_Cache
             return false;
         }
 
-        list($flushPerm, $flushVolatile) = $this->backend->getLastFlushTime();
+        list($flushPerm, $flushVolatile) = $this->getLastFlushTime();
 
         $entry = $this->expandEntry($values, $flushPerm, $flushVolatile);
 
@@ -321,15 +345,27 @@ class Redis_Cache
         return $entry;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function getMultiple(&$cids)
     {
         $map    = drupal_map_assoc($cids);
         $ret    = array();
         $delete = array();
 
-        $entries = $this->backend->getMultiple($map);
+        if ($this->isSharded) {
+            $entries = array();
+            foreach ($cids as $cid) {
+                if ($entry = $this->backend->get($cid)) {
+                    $entries[] = $entry;
+                }
+            }
+        } else {
+            $entries = $this->backend->getMultiple($map);
+        }
 
-        list($flushPerm, $flushVolatile) = $this->backend->getLastFlushTime();
+        list($flushPerm, $flushVolatile) = $this->getLastFlushTime();
 
         $map = array_flip($map);
         if (!empty($entries)) {
@@ -338,17 +374,22 @@ class Redis_Cache
                 $entry = $this->expandEntry($values, $flushPerm, $flushVolatile);
 
                 if (empty($entry)) {
-                    $delete[] = $id;
+                    $delete[] = $map[$id];
                     unset($map[$id]);
                 } else {
-                    $cid = $map[$id];
-                    $ret[$cid] = $entry;
+                    $ret[$map[$id]] = $entry;
                 }
             }
         }
 
         if (!empty($delete)) {
-            $this->backend->deleteMultiple($delete);
+            if ($this->isSharded) {
+                foreach ($delete as $id) {
+                    $this->backend->delete($id);
+                }
+            } else {
+                $this->backend->deleteMultiple($delete);
+            }
         }
 
         $cids = array_diff($cids, array_keys($ret));
@@ -356,6 +397,9 @@ class Redis_Cache
         return $ret;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function set($cid, $data, $expire = CACHE_PERMANENT)
     {
         $hash   = $this->createEntryHash($cid, $data, $expire);
@@ -389,17 +433,20 @@ class Redis_Cache
         }
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function clear($cid = null, $wildcard = false)
     {
         // This is only for readability
         $backend = $this->backend;
 
-        list($flushPerm, $flushVolatile) = $this->backend->getLastFlushTime();
+        list($flushPerm, $flushVolatile) = $this->getLastFlushTime();
 
         if (null === $cid && !$wildcard) {
             // Drupal asked for volatile entries flush, this will happen
             // during cron run, mostly
-            $backend->setLastFlushTimeFor($this->getNextIncrement($flushVolatile), true);
+            $backend->setLastFlushTimeFor($this->getValidChecksum($flushVolatile), true);
 
             if (!$this->isSharded && $this->allowTemporaryFlush) {
                 $this->backend->flushVolatile();
@@ -412,7 +459,8 @@ class Redis_Cache
 
             if ('*' === $cid) {
                 // Use max() to ensure we invalidate both correctly
-                $this->backend->setLastFlushTimeFor(max(array($flushPerm, $flushVolatile)));
+                $validityThreshold = max(array($flushPerm, $flushVolatile));
+                $this->backend->setLastFlushTimeFor($this->getValidChecksum($validityThreshold));
 
                 if (!$this->isSharded) {
                       $this->backend->flush();
@@ -424,7 +472,8 @@ class Redis_Cache
                     // @todo This needs a map algorithm the same way memcache
                     // module implemented it for invalidity by prefixes. This
                     // is a very stupid fallback
-                    $this->backend->setLastFlushTimeFor(max(array($flushPerm, $flushVolatile)));
+                    $validityThreshold = max(array($flushPerm, $flushVolatile));
+                    $this->backend->setLastFlushTimeFor($this->getValidChecksum($validityThreshold));
                 }
             }
         } else if (is_array($cid)) {
@@ -524,5 +573,25 @@ class Redis_Cache
         }
 
         return $timestamp . '.000';
+    }
+
+    /**
+     * Get valid checksum
+     *
+     * @param int|string $previous
+     *   "TIMESTAMP[.INCREMENT]" string
+     *
+     * @return string
+     *   The next "TIMESTAMP.INCREMENT" string.
+     *
+     * @see Redis_Cache::getNextIncrement()
+     */
+    public function getValidChecksum($previous = null)
+    {
+        if (time() === (int)$previous) {
+            return $this->getNextIncrement($previous);
+        } else {
+            return $this->getNextIncrement();
+        }
     }
 }

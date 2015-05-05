@@ -6,13 +6,24 @@
 abstract class Redis_Tests_Cache_FixesUnitTestCase extends Redis_Tests_AbstractUnitTestCase
 {
     /**
+     * @var Cache bin identifier
+     */
+    static private $id = 1;
+
+    /**
      * Get cache backend
      *
      * @return Redis_Cache
      */
-    final protected function getBackend()
+    final protected function getBackend($name = null)
     {
-        return new Redis_Cache('cache');
+        if (null === $name) {
+            // This is needed to avoid conflict between tests, each test
+            // seems to use the same Redis namespace and conflicts are
+            // possible.
+            $name = 'cache' . (self::$id++);
+        }
+        return new Redis_Cache($name);
     }
 
     public function testTemporaryCacheExpire()
@@ -73,6 +84,8 @@ abstract class Redis_Tests_Cache_FixesUnitTestCase extends Redis_Tests_AbstractU
 
     public function testDefaultPermTtl()
     {
+        global $conf;
+        unset($conf['redis_perm_ttl']);
         $backend = $this->getBackend();
         $this->assertIdentical(Redis_Cache::LIFETIME_PERM_DEFAULT, $backend->getPermTtl());
     }
@@ -90,7 +103,7 @@ abstract class Redis_Tests_Cache_FixesUnitTestCase extends Redis_Tests_AbstractU
     {
         global $conf;
         // This also testes string parsing. Not fully, but at least one case.
-        $conf['redis_perm_ttl_cache'] = "1 months";
+        $conf['redis_perm_ttl'] = "1 months";
         $backend = $this->getBackend();
         $this->assertIdentical(2592000, $backend->getPermTtl());
     }
@@ -99,7 +112,7 @@ abstract class Redis_Tests_Cache_FixesUnitTestCase extends Redis_Tests_AbstractU
     {
         global $conf;
         // This also testes string parsing. Not fully, but at least one case.
-        $conf['redis_perm_ttl_cache'] = "2 seconds";
+        $conf['redis_perm_ttl'] = "2 seconds";
         $backend = $this->getBackend();
         $this->assertIdentical(2, $backend->getPermTtl());
 

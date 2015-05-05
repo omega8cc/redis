@@ -116,7 +116,7 @@ class Redis_Cache_PhpRedis extends Redis_Cache_Base
     public function deleteByPrefix($prefix)
     {
         $client = $this->getClient();
-        $ret = $client->eval(self::EVAL_DELETE_PREFIX, array($this->getKey(array($prefix, '*'))));
+        $ret = $client->eval(self::EVAL_DELETE_PREFIX, array($this->getKey(array($prefix . '*'))));
         if (1 != $ret) {
             trigger_error(sprintf("EVAL failed: %s", $client->getLastError()), E_USER_ERROR);
         }

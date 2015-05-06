@@ -131,7 +131,7 @@ abstract class Redis_Tests_AbstractUnitTestCase extends DrupalUnitTestCase
         drupal_uninstall_schema('system');
 
         $this->restoreDrupalEnvironment();
-        $this->restoreDrupalEnvironment();
+        $this->restoreClientManager();
 
         parent::tearDown();
     }

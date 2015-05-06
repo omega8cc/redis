@@ -9,6 +9,13 @@ abstract class Redis_Tests_Lock_AbstractLockingUnitTestCase extends Redis_Tests_
      */
     protected $backends = array();
 
+    public function setUp()
+    {
+        parent::setUp();
+
+        $this->backends = array();
+    }
+
     public function tearDown()
     {
         if (!empty($this->backends)) {

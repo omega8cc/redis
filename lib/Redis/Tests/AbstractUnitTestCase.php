@@ -37,7 +37,21 @@ abstract class Redis_Tests_AbstractUnitTestCase extends DrupalUnitTestCase
     }
 
     /**
-     * Set up the Redis configuration.
+     * Drupal $conf array backup
+     *
+     * @var array
+     */
+    private $originalConf = array(
+        'cache_lifetime'          => null,
+        'cache_prefix'            => null,
+        'redis_client_interface'  => null,
+        'redis_eval_enabled'      => null,
+        'redis_flush_mode'        => null,
+        'redis_perm_ttl'          => null,
+    );
+
+    /**
+     * Set up the Redis configuration
      *
      * Set up the needed variables using variable_set() if necessary.
      *
@@ -47,9 +61,35 @@ abstract class Redis_Tests_AbstractUnitTestCase extends DrupalUnitTestCase
     abstract protected function getClientInterface();
 
     /**
-     * Reset and prepare client manager
+     * Prepare Drupal environmment for testing
      */
-    final protected function prepareClientManager()
+    final private function prepareDrupalEnvironment()
+    {
+        // Site on which the tests are running may define this variable
+        // in their own settings.php file case in which it will be merged
+        // with testing site
+        global $conf;
+        foreach (array_keys($this->originalConf) as $key) {
+            if (isset($conf[$key])) {
+                $this->originalConf[$key] = $conf[$key];
+                unset($conf[$key]);
+            }
+        }
+        $conf['cache_prefix'] = $this->testId;
+    }
+
+    /**
+     * Restore Drupal environment after testing.
+     */
+    final private function restoreDrupalEnvironment()
+    {
+        $GLOBALS['conf'] = $this->originalConf + $GLOBALS['conf'];
+    }
+
+    /**
+     * Prepare client manager
+     */
+    final private function prepareClientManager()
     {
         $interface = $this->getClientInterface();
 
@@ -61,33 +101,51 @@ abstract class Redis_Tests_AbstractUnitTestCase extends DrupalUnitTestCase
         Redis_Client::reset();
     }
 
+    /**
+     * Restore client manager
+     */
+    final private function restoreClientManager()
+    {
+        Redis_Client::reset();
+    }
+
+    /**
+     * Set up the Redis configuration.
+     *
+     * Set up the needed variables using variable_set() if necessary.
+     *
+     * @return string
+     *   Client interface or null if not exists
+     */
+    abstract protected function getClientInterface();
+
+    /**
+     * {@inheritdoc}
+     */
     public function setUp()
     {
         self::enableAutoload();
 
-        // Site on which the tests are running may define this variable
-        // in their own settings.php file case in which it will be merged
-        // with testing site
-        global $conf;
-        unset(
-          $conf['cache_lifetime'],
-          $conf['redis_client_interface'],
-          $conf['redis_flush_mode'],
-          $conf['redis_perm_ttl']
-          // $conf['redis_servers']
-        );
-
+        $this->prepareDrupalEnvironment();
         $this->prepareClientManager();
+
         parent::setUp();
+
         drupal_install_schema('system');
         drupal_install_schema('locale');
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function tearDown()
     {
         drupal_uninstall_schema('locale');
         drupal_uninstall_schema('system');
-        Redis_Client::reset();
+
+        $this->restoreDrupalEnvironment();
+        $this->restoreDrupalEnvironment();
+
         parent::tearDown();
     }
 }

@@ -51,16 +51,6 @@ abstract class Redis_Tests_AbstractUnitTestCase extends DrupalUnitTestCase
     );
 
     /**
-     * Set up the Redis configuration
-     *
-     * Set up the needed variables using variable_set() if necessary.
-     *
-     * @return string
-     *   Client interface or null if not exists
-     */
-    abstract protected function getClientInterface();
-
-    /**
      * Prepare Drupal environmment for testing
      */
     final private function prepareDrupalEnvironment()

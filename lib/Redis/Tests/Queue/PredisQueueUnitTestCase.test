@@ -1,8 +1,6 @@
 <?php
 
-/**
- * Predis lock testing.
- *
+/*
 class Redis_Tests_Queue_PredisQueueUnitTestCase extends Redis_Tests_Queue_QueueUnitTestCase
 {
     public static function getInfo()

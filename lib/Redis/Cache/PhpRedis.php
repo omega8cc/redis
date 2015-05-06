@@ -126,7 +126,7 @@ class Redis_Cache_PhpRedis extends Redis_Cache_Base {
 
   protected function clearWithEval($cid = NULL, $wildcard = FALSE) {
 
-    $client = $this->getClient();
+    $client = Redis_Client::getClient();
 
     // @todo Should I restore the clear mode?
     if (NULL === $cid && FALSE === $wildcard) {
@@ -153,6 +153,9 @@ class Redis_Cache_PhpRedis extends Redis_Cache_Base {
       if (1 != $ret) {
         trigger_error(sprintf("EVAL failed: %s", $client->getLastError()), E_USER_ERROR);
       }
+    }
+    else if (!$wildcard) {
+      $client->del($this->getKey($cid));
     }
   }
 

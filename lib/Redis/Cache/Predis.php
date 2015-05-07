@@ -43,7 +43,8 @@ class Redis_Cache_Predis extends Redis_Cache_Base
     public function get($id)
     {
         $client = $this->getClient();
-        $values = $client->hgetall($id);
+        $key    = $this->getKey($id);
+        $values = $client->hgetall($key);
 
         // Recent versions of PhpRedis will return the Redis instance
         // instead of an empty array when the HGETALL target key does
@@ -57,15 +58,13 @@ class Redis_Cache_Predis extends Redis_Cache_Base
 
     public function getMultiple(array $idList)
     {
-        $client = $this->getClient();
-
         $ret = array();
 
-        $replies = $client->pipeline(function($pipe) use ($idList) {
-            foreach ($idList as $key) {
-                $pipe->hgetall($key);
-            }
-        });
+        $pipe = $this->getClient()->pipeline();
+        foreach ($idList as $id) {
+            $pipe->hgetall($this->getKey($id));
+        }
+        $replies = $pipe->execute();
 
         foreach (array_values($idList) as $line => $id) {
             // HGETALL signature seems to differ depending on Predis versions.
@@ -90,34 +89,37 @@ class Redis_Cache_Predis extends Redis_Cache_Base
             return;
         }
 
+        $key = $this->getKey($id);
+
         $data['volatile'] = (int)$volatile;
 
-        $client = $this->getClient();
-
-        $client->pipeline(function($pipe) use ($id, $ttl, $data) {
-            $pipe->hmset($id, $data);
-            if (null !== $ttl) {
-                $pipe->expire($id, $ttl);
-            }
-        });
+        $pipe = $this->getClient()->pipeline();
+        $pipe->hmset($key, $data);
+        if (null !== $ttl) {
+            $pipe->expire($key, $ttl);
+        }
+        $pipe->execute();
     }
 
     public function delete($id)
     {
         $client = $this->getClient();
-        $client->del($id);
+        $client->del($this->getKey($id));
     }
 
     public function deleteMultiple(array $idList)
     {
-        $client = $this->getClient();
-        $client->del($idList);
+        $pipe = $this->getClient()->pipeline();
+        foreach ($idList as $id) {
+            $pipe->del($this->getKey($id));
+        }
+        $pipe->execute();
     }
 
     public function deleteByPrefix($prefix)
     {
         $client = $this->getClient();
-        $ret = $client->eval(self::EVAL_DELETE_PREFIX, 1, $this->getKey($prefix . '*'));
+        $ret = $client->eval(self::EVAL_DELETE_PREFIX, 0, $this->getKey($prefix . '*'));
         if (1 != $ret) {
             trigger_error(sprintf("EVAL failed: %s", $client->getLastError()), E_USER_ERROR);
         }
@@ -126,7 +128,7 @@ class Redis_Cache_Predis extends Redis_Cache_Base
     public function flush()
     {
         $client = $this->getClient();
-        $ret = $client->eval(self::EVAL_DELETE_PREFIX, 1, $this->getKey('*'));
+        $ret = $client->eval(self::EVAL_DELETE_PREFIX, 0, $this->getKey('*'));
         if (1 != $ret) {
             trigger_error(sprintf("EVAL failed: %s", $client->getLastError()), E_USER_ERROR);
         }
@@ -135,7 +137,7 @@ class Redis_Cache_Predis extends Redis_Cache_Base
     public function flushVolatile()
     {
         $client = $this->getClient();
-        $ret = $client->eval(self::EVAL_DELETE_VOLATILE, 1, $this->getKey('*'));
+        $ret = $client->eval(self::EVAL_DELETE_VOLATILE, 0, $this->getKey('*'));
         if (1 != $ret) {
             trigger_error(sprintf("EVAL failed: %s", $client->getLastError()), E_USER_ERROR);
         }

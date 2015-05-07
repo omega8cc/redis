@@ -108,6 +108,33 @@ abstract class Redis_Tests_Cache_FixesUnitTestCase extends Redis_Tests_AbstractU
         $this->assertIdentical(2592000, $backend->getPermTtl());
     }
 
+    public function testGetMultiple()
+    {
+        $backend = $this->getBackend();
+
+        $backend->set('multiple1', 1);
+        $backend->set('multiple2', 2);
+        $backend->set('multiple3', 3);
+        $backend->set('multiple4', 4);
+
+        $cidList = array('multiple1', 'multiple2', 'multiple3', 'multiple4', 'multiple5');
+        $ret = $backend->getMultiple($cidList);
+
+        $this->assertEqual(1, count($cidList));
+        $this->assertFalse(isset($cidList[0]));
+        $this->assertFalse(isset($cidList[1]));
+        $this->assertFalse(isset($cidList[2]));
+        $this->assertFalse(isset($cidList[3]));
+        $this->assertTrue(isset($cidList[4]));
+
+        $this->assertEqual(4, count($ret));
+        $this->assertTrue(isset($ret['multiple1']));
+        $this->assertTrue(isset($ret['multiple2']));
+        $this->assertTrue(isset($ret['multiple3']));
+        $this->assertTrue(isset($ret['multiple4']));
+        $this->assertFalse(isset($ret['multiple5']));
+    }
+
     public function testPermTtl()
     {
         global $conf;

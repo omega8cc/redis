@@ -27,14 +27,20 @@ class Redis_Cache
     const FLUSH_NORMAL = 0;
 
     /**
-     * Never flush anything, and let Redis handle entries TTL
-     *
      * This mode is tailored for sharded Redis servers instances usage: it
      * will never delete entries but only mark the latest flush timestamp
      * into one of the servers in the shard. It will proceed to delete on
      * read single entries when invalid entries are being loaded.
      */
     const FLUSH_SHARD = 3;
+
+    /**
+     * Same as the one above, plus attempt to do pipelining when possible.
+     *
+     * This is supposed to work with sharding proxies that supports
+     * pipelining themselves, such as Twemproxy.
+     */
+    const FLUSH_SHARD_WITH_PIPELINING = 4;
 
     /**
      * Computed keys are let's say arround 60 characters length due to
@@ -74,6 +80,14 @@ class Redis_Cache
      * @var boolean
      */
     protected $isSharded = false;
+
+    /**
+     * When in shard mode, the proxy may or may not support pipelining,
+     * Twemproxy is known to support it.
+     *
+     * @var boolean
+     */
+    protected $allowPipeline = false;
 
     /**
      * Default TTL for CACHE_PERMANENT items.
@@ -164,7 +178,8 @@ class Redis_Cache
             $mode = self::FLUSH_NORMAL;
         }
 
-        $this->isSharded = self::FLUSH_SHARD === $mode;
+        $this->isSharded = self::FLUSH_SHARD === $mode || self::FLUSH_SHARD_WITH_PIPELINING === $mode;
+        $this->allowPipeline = self::FLUSH_SHARD_WITH_PIPELINING === $mode;
     }
 
     /**
@@ -375,7 +390,7 @@ class Redis_Cache
             if (empty($entry)) {
                 $delete[] = $cid;
             } else {
-                $ret[$key] = $entry;
+                $ret[$cid] = $entry;
                 unset($cids[$key]);
             }
         }

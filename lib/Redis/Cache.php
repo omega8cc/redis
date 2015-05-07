@@ -300,7 +300,7 @@ class Redis_Cache
         }
 
         // Ensure the entry does not predate the last flush time.
-        if ($this->allowTemporaryFlush && $values['volatile']) {
+        if ($this->allowTemporaryFlush && !empty($values['volatile'])) {
             $validityThreshold = max(array($flushPerm, $flushVolatile));
         } else {
             $validityThreshold = $flushPerm;

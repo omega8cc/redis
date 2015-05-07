@@ -23,7 +23,14 @@ abstract class Redis_Tests_Cache_FixesUnitTestCase extends Redis_Tests_AbstractU
             // possible.
             $name = 'cache' . (self::$id++);
         }
-        return new Redis_Cache($name);
+
+        $backend = new Redis_Cache($name);
+
+        $this->assert(true, "Redis client is " . ($backend->isSharded() ? '' : "NOT ") . " sharded");
+        $this->assert(true, "Redis client is " . ($backend->allowTemporaryFlush() ? '' : "NOT ") . " allowed to flush temporary entries");
+        $this->assert(true, "Redis client is " . ($backend->allowPipeline() ? '' : "NOT ") . " allowed to use pipeline");
+
+        return $backend;
     }
 
     public function testTemporaryCacheExpire()

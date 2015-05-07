@@ -77,6 +77,8 @@ interface Redis_Cache_BackendInterface extends Redis_BackendInterface
     /**
      * Delete multiple entries
      *
+     * This method should not use a single DEL command but use a pipeline instead
+     *
      * @param array $idList
      */
     public function deleteMultiple(array $idList);

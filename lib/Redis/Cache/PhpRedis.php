@@ -110,7 +110,14 @@ class Redis_Cache_PhpRedis extends Redis_Cache_Base
 
     public function deleteMultiple(array $idList)
     {
-        $this->getClient()->del(array_map(array($this, 'getKey'), $idList));
+        $client = $this->getClient();
+
+        $pipe = $client->multi(Redis::PIPELINE);
+        foreach ($idList as $id) {
+            $pipe->del($this->getKey($id));
+        }
+        // Don't care if something failed.
+        $pipe->exec();
     }
 
     public function deleteByPrefix($prefix)

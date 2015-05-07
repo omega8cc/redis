@@ -25,6 +25,7 @@ abstract class Redis_Tests_Cache_FlushUnitTestCase extends Redis_Tests_AbstractU
 
         $this->assert(true, "Redis client is " . ($backend->isSharded() ? '' : "NOT ") . " sharded");
         $this->assert(true, "Redis client is " . ($backend->allowTemporaryFlush() ? '' : "NOT ") . " allowed to flush temporary entries");
+        $this->assert(true, "Redis client is " . ($backend->allowPipeline() ? '' : "NOT ") . " allowed to use pipeline");
 
         return $backend;
     }

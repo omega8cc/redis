@@ -117,6 +117,16 @@ class Redis_Cache
     }
 
     /**
+     * Does this bin allow pipelining through sharded environment
+     *
+     * @return boolean
+     */
+    public function allowPipeline()
+    {
+        return $this->allowPipeline;
+    }
+
+    /**
      * Does this bin allow temporary item flush
      *
      * @return boolean
@@ -179,7 +189,7 @@ class Redis_Cache
         }
 
         $this->isSharded = self::FLUSH_SHARD === $mode || self::FLUSH_SHARD_WITH_PIPELINING === $mode;
-        $this->allowPipeline = self::FLUSH_SHARD_WITH_PIPELINING === $mode;
+        $this->allowPipeline = self::FLUSH_SHARD !== $mode;
     }
 
     /**
@@ -368,7 +378,7 @@ class Redis_Cache
         $ret    = array();
         $delete = array();
 
-        if ($this->isSharded) {
+        if (!$this->allowPipeline) {
             $entries = array();
             foreach ($cids as $cid) {
                 if ($entry = $this->backend->get($cid)) {
@@ -396,7 +406,7 @@ class Redis_Cache
         }
 
         if (!empty($delete)) {
-            if ($this->isSharded) {
+            if ($this->allowPipeline) {
                 foreach ($delete as $id) {
                     $this->backend->delete($id);
                 }

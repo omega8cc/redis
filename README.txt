@@ -25,7 +25,14 @@ This module requires Redis version to be 2.6.0 or later with LUA scrpting
 enabled due to the EVAL command usage.
 
 If you can't upgrade you Redis server:
-  - For Redis 2.4 use the latest 2.x release of this module.
+
+  - 3.x release will only officially support Redis server <= 2.6
+    nevertheless you may use it with Redis 2.4 if you configure your cache
+    backend to operate in sharding mode.
+
+  - For Redis 2.4 use the latest 2.x release of this module or use the
+    3.x release with sharding mode enabled.
+
   - For Redis <=2.3 use any version of this module <=2.6
 
 Notes
@@ -162,6 +169,9 @@ use one in particular, just add to your settings.php file:
 
   $conf['redis_client_base'] = 12;
 
+Please note that if you are working in shard mode, you should never set this
+variable.
+
 Connection to a password protected instance
 -------------------------------------------
 
@@ -256,6 +266,18 @@ Note that previous Redis module version allowed to set a per-bin setting for
 the clear mode value; nevertheless the clear mode is not a valid setting
 anymore and the past issues have been resolved. Only the global value will
 work as of now.
+
+Sharding and pipelining
+-----------------------
+
+Whe using this module with sharding mode you may have a sharding proxy able to
+do command pipelining. If that is the case, you should switch to "sharding with
+pipelining" mode instead:
+
+    $conf['redis_flush_mode'] = 4;
+
+Note that if you use the sharding mode because you use an older version of the
+Redis server, you should always use this mode to ensure the best performances.
 
 Default lifetime for permanent items
 ------------------------------------

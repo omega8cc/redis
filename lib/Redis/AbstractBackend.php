@@ -28,24 +28,12 @@ abstract class Redis_AbstractBackend
         // a separate HTTP_HOST of 'default'. Likewise, we can't rely on
         // conf_path(), as settings.php might be modifying what database to
         // connect to. To mirror what core does with database caching we use
-        // the DB credentials to inform our cache key - but only for Drupal 7,
-        // while for Drupal 6 we still use the old method as a fallback.
-        if (null === self::$globalPrefix) {
-          $isSeven = variable_get('file_private_path', FALSE);
-          if ($isSeven) {
+        // the DB credentials to inform our cache key.
+      if (null === self::$globalPrefix) {
             require_once DRUPAL_ROOT . '/includes/database/database.inc';
             $dbInfo = Database::getConnectionInfo();
             $active = $dbInfo['default'];
-            self::$globalPrefix = md5($active['host'] . $active['database'] . $active['prefix']['default']) . '_d_';
-          }
-          else {
-            if (isset($_SERVER['SERVER_NAME'])) {
-              self::$globalPrefix = md5(preg_replace('`^www\.`', '', $_SERVER['SERVER_NAME'])) . '_n_';
-            }
-            elseif (isset($_SERVER['HTTP_HOST'])) {
-              self::$globalPrefix = md5(preg_replace('`^www\.`', '', $_SERVER['HTTP_HOST'])) . '_h_';
-            }
-          }
+            self::$globalPrefix = md5($active['host'] . $active['database'] . $active['prefix']['default']);
         }
 
         return self::$globalPrefix;
@@ -62,8 +50,8 @@ abstract class Redis_AbstractBackend
     {
         $ret = null;
 
-        if (isset($GLOBALS['drupal_test_info']) && !empty($test_info['test_run_id'])) {
-            $ret = $test_info['test_run_id'];
+        if (isset($GLOBALS['drupal_test_info']) && !empty($GLOBALS['drupal_test_info']['test_run_id'])) {
+            $ret = $GLOBALS['drupal_test_info']['test_run_id'];
         } else {
             $prefixes = variable_get('cache_prefix', null);
 
@@ -93,7 +81,6 @@ abstract class Redis_AbstractBackend
             }
         }
 
-        $ret = ''; // Ignore prefix defined in global.inc or local.settings.php
         if (empty($ret)) {
             $ret = self::getGlobalPrefix();
         }

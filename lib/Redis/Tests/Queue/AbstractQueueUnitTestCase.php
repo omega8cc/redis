@@ -4,7 +4,7 @@
  * Some tests in there credits goes to the redis_queue module.
  * Thanks to their author.
  */
-class AbstractRedisQueueUnitTestCase extends DrupalUnitTestCase
+abstract class Redis_Tests_Queue_AbstractQueueUnitTestCase extends Redis_Tests_AbstractUnitTestCase
 {
     /**
      * @var Redis_Queue
@@ -20,7 +20,6 @@ class AbstractRedisQueueUnitTestCase extends DrupalUnitTestCase
     {
         parent::setUp();
 
-        drupal_install_schema('system');
         module_load_include('inc', 'system', 'system.queue');
 
         $this->name = 'redis-queue-test-' . time();
@@ -31,8 +30,6 @@ class AbstractRedisQueueUnitTestCase extends DrupalUnitTestCase
     {
         $this->queue->deleteQueue();
         $this->name = null;
-
-        drupal_uninstall_schema('system');
 
         parent::tearDown();
     }
@@ -133,75 +130,4 @@ class AbstractRedisQueueUnitTestCase extends DrupalUnitTestCase
         $q2->deleteQueue();
     }
      */
-}
-
-/**
- * Predis lock testing.
- *
-class PredisQueueUnitTestCase extends AbstractRedisLockingUnitTestCase
-{
-    public static function getInfo()
-    {
-        return array(
-            'name'        => 'Predis Redis queue',
-            'description' => 'Ensure that Redis queue feature is working OK.',
-            'group'       => 'Redis',
-        );
-    }
-
-    protected function getLockBackendClass()
-    {
-        global $conf;
-
-        // FIXME: This is definitely ugly but we have no choice: during unit
-        // testing Drupal will attempt to reach the database if do not prepend
-        // our autoloader manually. We can't do class_exists() calls either,
-        // they will lead to Drupal crash in all case.
-        if (!defined('PREDIS_BASE_PATH')
-    {
-            define('PREDIS_BASE_PATH', DRUPAL_ROOT . '/sites/all/libraries/predis/lib/');
-        }
-
-        spl_autoload_register(function($className
-    {
-            $parts = explode('\\', $className);
-            if ('Predis' === $parts[0]
-    {
-                $filename = PREDIS_BASE_PATH . implode('/', $parts) . '.php';
-                return (bool)include_once $filename;
-            }
-            return false;
-        }, null, true);
-
-        $conf['redis_client_interface'] = 'Predis';
-
-        return 'Redis_Lock_Backend_Predis';
-    }
-}
- */
-
-/**
- * PhpRedis lock testing.
- */
-class PhpRedisQueueUnitTestCase extends AbstractRedisQueueUnitTestCase
-{
-    public static function getInfo()
-    {
-        return array(
-            'name'        => 'PhpRedis Redis queue',
-            'description' => 'Ensure that Redis queue feature is working OK.',
-            'group'       => 'Redis',
-        );
-    }
-
-    protected function getLockBackendClass()
-    {
-        global $conf;
-
-        if (extension_loaded('redis') && class_exists('Redis')) {
-            $conf['redis_client_interface'] = 'PhpRedis';
-
-            return 'Redis_Lock_Backend_PhpRedis';
-        }
-    }
 }

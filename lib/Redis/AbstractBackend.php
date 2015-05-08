@@ -62,8 +62,8 @@ abstract class Redis_AbstractBackend
     {
         $ret = null;
 
-        if (isset($GLOBALS['drupal_test_info']) && !empty($test_info['test_run_id'])) {
-            $ret = $test_info['test_run_id'];
+        if (isset($GLOBALS['drupal_test_info']) && !empty($GLOBALS['drupal_test_info']['test_run_id'])) {
+            $ret = $GLOBALS['drupal_test_info']['test_run_id'];
         } else {
             $prefixes = variable_get('cache_prefix', null);
 

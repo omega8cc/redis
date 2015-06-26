@@ -45,6 +45,14 @@ abstract class Redis_AbstractBackend
             elseif (isset($_SERVER['HTTP_HOST'])) {
               self::$globalPrefix = md5(preg_replace('`^www\.`', '', $_SERVER['HTTP_HOST'])) . '_h_';
             }
+            else {
+              if (isset($GLOBALS['db_url'])) {
+                  // Drupal 6 specifics when using the cache_backport module, we
+                  // therefore cannot use \Database class to determine database
+                  // settings.
+                  self::$globalPrefix = md5($GLOBALS['db_url']) . '_u_';
+              }
+            }
           }
         }
 

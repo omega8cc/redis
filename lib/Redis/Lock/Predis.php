@@ -28,7 +28,7 @@ class Redis_Lock_Predis extends Redis_Lock_DefaultBackend {
       // Global tells us we are the owner, but in real life it could have expired
       // and another process could have taken it, check that.
       if ($client->get($key) != $id) {
-        $client->unwatch($key);
+        $client->unwatch();
         unset($this->_locks[$name]);
         return FALSE;
       }

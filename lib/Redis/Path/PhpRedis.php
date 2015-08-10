@@ -41,6 +41,9 @@ class Redis_Path_PhpRedis extends Redis_Path_AbstractHashLookup
         // Empty value here means that we already got it
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function saveAlias($source, $alias, $language = null)
     {
         if (null === $language) {
@@ -63,7 +66,7 @@ class Redis_Path_PhpRedis extends Redis_Path_AbstractHashLookup
 
         if ($value) {
             $existing = explode(self::VALUE_SEPARATOR, $value);
-            if ($index = array_search($hvalue, $existing)) {
+            if (false !== ($index = array_search($hvalue, $existing))) {
                 if (1 === count($existing)) {
                     $client->hdel($key, $hkey);
                 } else {
@@ -74,6 +77,9 @@ class Redis_Path_PhpRedis extends Redis_Path_AbstractHashLookup
         }
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function deleteAlias($source, $alias, $language = null)
     {
         if (null === $language) {
@@ -84,6 +90,9 @@ class Redis_Path_PhpRedis extends Redis_Path_AbstractHashLookup
         $this->deleteInHash($this->getKey(array(self::KEY_SOURCE, $language)), $alias, $source);
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function deleteLanguage($language)
     {
         $client = $this->getClient();
@@ -91,7 +100,7 @@ class Redis_Path_PhpRedis extends Redis_Path_AbstractHashLookup
         $client->del($this->getKey(array(self::KEY_SOURCE, $language)));
     }
 
-    public function lookupInHash($keyPrefix, $hkey, $language = null)
+    protected function lookupInHash($keyPrefix, $hkey, $language = null)
     {
         $client = $this->getClient();
 
@@ -127,11 +136,17 @@ class Redis_Path_PhpRedis extends Redis_Path_AbstractHashLookup
         return reset($existing);
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function lookupAlias($source, $language = null)
     {
         return $this->lookupInHash(self::KEY_ALIAS, $source, $language);
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function lookupSource($alias, $language = null)
     {
         return $this->lookupInHash(self::KEY_SOURCE, $alias, $language);

@@ -14,17 +14,10 @@ define('REDIS_ROOT', dirname(__FILE__) . '/lib');
  * Redis module specific autoloader, compatible with spl_register_autoload().
  */
 function redis_autoload($class_name) {
-  $parts = explode('_', $class_name);
-
-  if ('Redis' === $parts[0]) {
-    $filename = REDIS_ROOT . '/' . implode('/', $parts) . '.php';
-
-    if (file_exists($filename)) {
-      require_once $filename;
-      return TRUE;
-    }
+  if ('Redis' === substr($class_name, 0, 5)) {
+    $filename = REDIS_ROOT . '/' . str_replace('_', '/', $class_name) . '.php';
+    return @include_once $filename;
   }
-
   return FALSE;
 }
 

@@ -58,16 +58,15 @@ class Redis_Client_Predis implements Redis_Client_Interface {
 
       if (!defined('PREDIS_BASE_PATH')) {
         $search = DRUPAL_ROOT . '/sites/all/libraries/predis';
+        define('PREDIS_BASE_PATH', $search);
       } else {
         $search = PREDIS_BASE_PATH;
       }
 
       if (is_dir($search . '/src')) { // Predis v1.x
         self::$predisVersionMajor = 1;
-        define('PREDIS_BASE_PATH', $search);
       } else if (is_dir($search . '/lib')) { // Predis v0.x
         self::$predisVersionMajor = 0;
-        define('PREDIS_BASE_PATH', $search);
       } else {
         throw new Exception("PREDIS_BASE_PATH constant must be set, Predis library must live in sites/all/libraries/predis.");
       }

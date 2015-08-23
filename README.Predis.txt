@@ -34,7 +34,7 @@ Once done, you either have to clone it into:
 
 So that you have the following directory tree:
 
-  sites/all/libraries/predis/src/Client # Where the PHP code stands
+  sites/all/libraries/predis/src/ # Where the PHP code stands
 
 Or, any other place in order to share it:
 For example, from your install profiles libraries folder:

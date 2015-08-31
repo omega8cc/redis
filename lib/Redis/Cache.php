@@ -107,6 +107,15 @@ class Redis_Cache
     protected $maxTtl = 0;
 
     /**
+     * Flush permanent and volatile cached values
+     *
+     * @var string[]
+     *   First value is permanent latest flush time and second value
+     *   is volatile latest flush time
+     */
+    protected $flushCache = null;
+
+    /**
      * Is this bin in shard mode
      *
      * @return boolean
@@ -237,6 +246,37 @@ class Redis_Cache
     }
 
     /**
+     * Set last flush time
+     *
+     * @param string $permanent
+     * @param string $volatile
+     */
+    public function setLastFlushTime($permanent = false, $volatile = false)
+    {
+        // Here we need to fetch absolute values from backend, to avoid
+        // concurrency problems and ensure data validity.
+        list($flushPerm, $flushVolatile) = $this->backend->getLastFlushTime();
+
+        $checksum = $this->getValidChecksum(
+            max([
+                $flushPerm,
+                $flushVolatile,
+                $permanent,
+                time(),
+            ])
+        );
+
+        if ($permanent) {
+            $this->backend->setLastFlushTimeFor($checksum, false);
+            $this->backend->setLastFlushTimeFor($checksum, true);
+            $this->flushCache = [$checksum, $checksum];
+        } else if ($volatile) {
+            $this->backend->setLastFlushTimeFor($checksum, true);
+            $this->flushCache = [$flushPerm, $checksum];
+        }
+    }
+
+    /**
      * Get latest flush time
      *
      * @return string[]
@@ -245,19 +285,20 @@ class Redis_Cache
      */
     public function getLastFlushTime()
     {
-        list($flushPerm, $flushVolatile) = $this->backend->getLastFlushTime();
-
-        // At the very first hit, we might not have the timestamps set, thus
-        // we need to create them to avoid our entry being considered as
-        // invalid
-        if (!$flushPerm) {
-            $this->backend->setLastFlushTimeFor($flushPerm = $this->getValidChecksum(), false);
+        if (!$this->flushCache) {
+            $this->flushCache = $this->backend->getLastFlushTime();
         }
-        if (!$flushVolatile) {
-            $this->backend->setLastFlushTimeFor($flushVolatile = $this->getValidChecksum(), false);
+ 
+         // At the very first hit, we might not have the timestamps set, thus
+         // we need to create them to avoid our entry being considered as
+         // invalid
+        if (!$this->flushCache[0]) {
+            $this->setLastFlushTime(true, true);
+        } else if (!$this->flushCache[1]) {
+            $this->setLastFlushTime(false, true);
         }
 
-        return array($flushPerm, $flushVolatile);
+        return $this->flushCache;
     }
 
     /**
@@ -459,15 +500,10 @@ class Redis_Cache
      */
     public function clear($cid = null, $wildcard = false)
     {
-        // This is only for readability
-        $backend = $this->backend;
-
-        list($flushPerm, $flushVolatile) = $this->getLastFlushTime();
-
         if (null === $cid && !$wildcard) {
             // Drupal asked for volatile entries flush, this will happen
             // during cron run, mostly
-            $backend->setLastFlushTimeFor($this->getValidChecksum($flushVolatile), true);
+            $this->setLastFlushTime(false, true);
 
             if (!$this->isSharded && $this->allowTemporaryFlush) {
                 $this->backend->flushVolatile();
@@ -480,8 +516,7 @@ class Redis_Cache
 
             if ('*' === $cid) {
                 // Use max() to ensure we invalidate both correctly
-                $validityThreshold = max(array($flushPerm, $flushVolatile));
-                $this->backend->setLastFlushTimeFor($this->getValidChecksum($validityThreshold));
+                $this->setLastFlushTime(true);
 
                 if (!$this->isSharded) {
                       $this->backend->flush();
@@ -493,8 +528,7 @@ class Redis_Cache
                     // @todo This needs a map algorithm the same way memcache
                     // module implemented it for invalidity by prefixes. This
                     // is a very stupid fallback
-                    $validityThreshold = max(array($flushPerm, $flushVolatile));
-                    $this->backend->setLastFlushTimeFor($this->getValidChecksum($validityThreshold));
+                    $this->setLastFlushTime(true);
                 }
             }
         } else if (is_array($cid)) {

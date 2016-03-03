@@ -66,19 +66,32 @@ class Redis_Client
         // a separate HTTP_HOST of 'default'. Likewise, we can't rely on
         // conf_path(), as settings.php might be modifying what database to
         // connect to. To mirror what core does with database caching we use
-        // the DB credentials to inform our cache key.
-      if (null === self::$globalPrefix) {
-            if (isset($GLOBALS['db_url'])) {
-                // Drupal 6 specifics when using the cache_backport module, we
-                // therefore cannot use \Database class to determine database
-                // settings.
-              self::$globalPrefix = md5($GLOBALS['db_url']);
-            } else {
-                require_once DRUPAL_ROOT . '/includes/database/database.inc';
-                $dbInfo = Database::getConnectionInfo();
-                $active = $dbInfo['default'];
-                self::$globalPrefix = md5($active['host'] . $active['database'] . $active['prefix']['default']);
+        // the DB credentials to inform our cache key - but only for Drupal 7,
+        // while for Drupal 6 we still use the old method as a fallback.
+        if (null === self::$globalPrefix) {
+          $isSeven = variable_get('file_private_path', FALSE);
+          if ($isSeven) {
+            require_once DRUPAL_ROOT . '/includes/database/database.inc';
+            $dbInfo = Database::getConnectionInfo();
+            $active = $dbInfo['default'];
+            self::$globalPrefix = md5($active['host'] . $active['database'] . $active['prefix']['default']) . '_d_';
+          }
+          else {
+            if (isset($_SERVER['SERVER_NAME'])) {
+              self::$globalPrefix = md5(preg_replace('`^www\.`', '', $_SERVER['SERVER_NAME'])) . '_n_';
             }
+            elseif (isset($_SERVER['HTTP_HOST'])) {
+              self::$globalPrefix = md5(preg_replace('`^www\.`', '', $_SERVER['HTTP_HOST'])) . '_h_';
+            }
+            else {
+              if (isset($GLOBALS['db_url'])) {
+                  // Drupal 6 specifics when using the cache_backport module, we
+                  // therefore cannot use \Database class to determine database
+                  // settings.
+                  self::$globalPrefix = md5($GLOBALS['db_url']) . '_u_';
+              }
+            }
+          }
         }
 
         return self::$globalPrefix;
@@ -126,6 +139,7 @@ class Redis_Client
             }
         }
 
+        $ret = ''; // Ignore prefix defined in global.inc or local.settings.php
         if (empty($ret)) {
             $ret = Redis_Client::getGlobalPrefix();
         }

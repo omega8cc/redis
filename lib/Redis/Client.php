@@ -84,7 +84,7 @@ class Redis_Client
               self::$globalPrefix = md5(preg_replace('`^www\.`', '', $_SERVER['HTTP_HOST'])) . '_h_';
             }
             else {
-              if (isset($GLOBALS['db_url'])) {
+              if (isset($GLOBALS['db_url']) && is_string($GLOBALS['db_url'])) {
                   // Drupal 6 specifics when using the cache_backport module, we
                   // therefore cannot use \Database class to determine database
                   // settings.

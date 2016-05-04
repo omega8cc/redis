@@ -69,7 +69,8 @@ class Redis_Client
         // the DB credentials to inform our cache key - but only for Drupal 7,
         // while for Drupal 6 we still use the old method as a fallback.
         if (null === self::$globalPrefix) {
-          $isSeven = variable_get('file_private_path', FALSE);
+          // $isSeven = variable_get('file_private_path', FALSE);
+          $isSeven = FALSE;
           if ($isSeven) {
             require_once DRUPAL_ROOT . '/includes/database/database.inc';
             $dbInfo = Database::getConnectionInfo();

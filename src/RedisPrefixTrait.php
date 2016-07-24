@@ -70,6 +70,13 @@ trait RedisPrefixTrait {
       $ret = $_SERVER['HTTP_HOST'] . '_';
     }
 
+	if (isset($_SERVER['SERVER_NAME'])) {
+	  $ret = md5(preg_replace('`^www\.`', '', $_SERVER['SERVER_NAME'])) . '_n_';
+	}
+	elseif (isset($_SERVER['HTTP_HOST'])) {
+	  $ret = md5(preg_replace('`^www\.`', '', $_SERVER['HTTP_HOST'])) . '_h_';
+	}
+
     return $ret;
   }
 
@@ -88,6 +95,7 @@ trait RedisPrefixTrait {
    * @return string
    */
   protected function getPrefix() {
+    $this->prefix = ''; // Ignore prefix defined in global.inc or local.settings.php
     if (!isset($this->prefix)) {
       $this->prefix = $this->getDefaultPrefix();
     }

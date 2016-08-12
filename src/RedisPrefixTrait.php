@@ -70,15 +70,15 @@ trait RedisPrefixTrait {
       $ret = $_SERVER['HTTP_HOST'] . '_';
     }
 
-	if (isset($_SERVER['MAIN_SITE_NAME'])) {
-	  $ret = md5(preg_replace('`^www\.`', '', $_SERVER['MAIN_SITE_NAME'])) . '_m_';
-	}
-	elseif (isset($_SERVER['SERVER_NAME'])) {
-	  $ret = md5(preg_replace('`^www\.`', '', $_SERVER['SERVER_NAME'])) . '_n_';
-	}
-	elseif (isset($_SERVER['HTTP_HOST'])) {
-	  $ret = md5(preg_replace('`^www\.`', '', $_SERVER['HTTP_HOST'])) . '_h_';
-	}
+    if (isset($_SERVER['MAIN_SITE_NAME'])) {
+      $ret = md5(preg_replace('`^www\.`', '', $_SERVER['MAIN_SITE_NAME'])) . '_m_';
+    }
+    elseif (isset($_SERVER['SERVER_NAME'])) {
+      $ret = md5(preg_replace('`^www\.`', '', $_SERVER['SERVER_NAME'])) . '_n_';
+    }
+    elseif (isset($_SERVER['HTTP_HOST'])) {
+      $ret = md5(preg_replace('`^www\.`', '', $_SERVER['HTTP_HOST'])) . '_h_';
+    }
 
     return $ret;
   }

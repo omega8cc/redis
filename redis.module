@@ -55,9 +55,9 @@ function redis_help($path, $arg) {
  */
 function phpredis_client_get() {
   if ('PhpRedis' !== variable_get('redis_client_interface')) {
-    return Redis_Client::getClient();
+    throw new \LogicException("Redis is not configured to use the php-redis client");
   }
-  throw new \LogicException("Redis is not configured to use the php-redis client");
+  return Redis_Client::getClient();
 }
 
 /**
@@ -67,7 +67,7 @@ function phpredis_client_get() {
  */
 function predis_client_get() {
   if ('Predis' !== variable_get('redis_client_interface')) {
-    return Redis_Client::getClient();
+    throw new \LogicException("Redis is not configured to use the Predis client");
   }
-  throw new \LogicException("Redis is not configured to use the Predis client");
+  return Redis_Client::getClient();
 }

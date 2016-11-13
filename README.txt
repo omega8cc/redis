@@ -77,6 +77,14 @@ settings for different bins; It's today very stable.
 Advanced configuration
 ======================
 
+Use the compressed cache
+------------------------
+
+Use this cache class setting to enable compression. This will save usually about 80%
+RAM at the cost of some milliseconds server time.
+
+  $conf['cache_default_class']    = 'Redis_CacheCompressed';
+
 Choose the Redis client library to use
 --------------------------------------
 

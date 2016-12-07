@@ -80,6 +80,9 @@ function drupal_lookup_path($action, $path = '', $path_language = NULL) {
   if (!$path_language = $path_language ? $path_language : $language_url->language) {
     $path_language = LANGUAGE_NONE;
   }
+  
+  // Ignore any extra spaces or %20 that are added to the URL.
+  $path = trim($path);
 
   if (!empty($path) && isset($cache[$path_language][$action][$path])) {
     return $cache[$path_language][$action][$path];

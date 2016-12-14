@@ -54,7 +54,7 @@ Quick setup
 -----------
 
 Here is a simple yet working easy way to setup the module.
-This method will Drupal to use Redis for all caches and locks
+This method will allow Drupal to use Redis for all caches and locks
 and path alias cache replacement.
 
   $conf['redis_client_interface'] = 'PhpRedis'; // Can be "Predis".

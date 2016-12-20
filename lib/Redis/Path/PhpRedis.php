@@ -117,9 +117,17 @@ class Redis_Path_PhpRedis extends Redis_Path_AbstractHashLookup
         if ($doNoneLookup && (!$ret || self::VALUE_NULL === $ret)) {
             $previous = $ret;
             $ret = $client->hget($this->getKey(array($keyPrefix, LANGUAGE_NONE)), $hkey);
-            if (!$ret && $previous) {
+            // If the language specific item was explicitly set to not-existent
+            // and there's no language neutral item ensure the return is set to
+            // not-existent.
+            // OR
+            // If the language neutral item is explicitly set to not-existent but
+            // the language specific item is set to not available set the return
+            // to not found - this will allow a lookup of the language specific
+            // item and a proper set to not-existent if applicable.
+            if ((!$ret && $previous) || (self::VALUE_NULL === $ret && empty($previous))) {
                 // Restore null placeholder else we loose conversion to false
-                // and drupal_lookup_path() would attempt saving it once again
+                // and drupal_lookup_path() would attempt saving it once again.
                 $ret = $previous;
             }
         }

@@ -181,6 +181,8 @@ function drupal_lookup_path($action, $path = '', $path_language = NULL) {
         // Getting here with a value means we need to cache it
         if (empty($ret)) {
           $ret = false;
+        } else {
+          $ret = strtolower(trim($ret));
         }
         $hashLookup->saveAlias($ret, $path, $path_language);
       }

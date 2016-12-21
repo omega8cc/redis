@@ -89,4 +89,27 @@ abstract class Redis_Tests_Path_PathUnitTestCase extends Redis_Tests_AbstractUni
         $alias = $backend->lookupAlias('node/4', 'fr');
         $this->assertIdentical('node-4', $alias);
     }
+
+    /**
+     * Tests that lookup is case insensitive
+     */
+    public function testCaseInsensitivePathLookup()
+    {
+        $backend = $this->getBackend();
+
+        $backend->saveAlias('node/1', 'Node-1-FR', 'fr');
+        $source = $backend->lookupSource('NODE-1-fr', 'fr');
+        $this->assertIdentical('node/1', $source);
+        $source = $backend->lookupSource('node-1-FR', 'fr');
+        $this->assertIdentical('node/1', $source);
+        $alias = $backend->lookupAlias('node/1', 'fr');
+        $this->assertIdentical('node-1-fr', strtolower($alias));
+
+        // Delete and ensure it does not exist anymore.
+        $backend->deleteAlias('node/1', 'node-1-FR', 'fr');
+        $source = $backend->lookupSource('Node-1-FR', 'fr');
+        $this->assertIdentical(null, $source);
+        $alias = $backend->lookupAlias('node/1', 'fr');
+        $this->assertIdentical(null, $source);
+    }
 }

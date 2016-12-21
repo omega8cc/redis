@@ -85,6 +85,10 @@ function drupal_lookup_path($action, $path = '', $path_language = NULL) {
     return $cache[$path_language][$action][$path];
   }
 
+  if (!empty($path)) {
+    $path = strtolower(trim($path));
+  }
+
   $ret = null;
   $hashLookup = redis_path_backend_get();
 

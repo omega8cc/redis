@@ -128,7 +128,7 @@ class Redis_Cache_Predis extends Redis_Cache_Base
 
     public function flush()
     {
-      $client = $this->getClient();
+        $client = $this->getClient();
         $scan_delete = variable_get('redis_scan_delete', FALSE);
         $ret = $client->eval(self::EVAL_DELETE_PREFIX, 0, $this->getKey('*'), $scan_delete);
         if (1 != $ret) {

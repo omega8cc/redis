@@ -116,6 +116,7 @@ if scan_delete ~= 0 then
   redis.log(redis.LOG_WARNING, "Non-blocking delete requested but not supported by server.")
 end
 
+redis.log(redis.LOG_NOTICE, "Using KEYS command to delete.")
 local keys = redis.call('KEYS', ARGV[1])
 redis.log(redis.LOG_NOTICE, "KEYS command finished.")
 for _, k in ipairs(keys) do

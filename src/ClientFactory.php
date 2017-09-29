@@ -100,7 +100,7 @@ class ClientFactory {
   {
     if (!isset(self::$_clientInterface))
     {
-      $settings = Settings::get('redis.connection', array());
+      $settings = Settings::get('redis.connection', []);
       if (!empty($settings['interface']))
       {
         $className = self::getClass(self::REDIS_IMPL_CLIENT, $settings['interface']);
@@ -144,20 +144,36 @@ class ClientFactory {
    */
   public static function getClient() {
     if (!isset(self::$_client)) {
-      $settings = Settings::get('redis.connection', array());
-      $settings += array(
+      $settings = Settings::get('redis.connection', []);
+      $settings += [
         'host' => self::REDIS_DEFAULT_HOST,
         'port' => self::REDIS_DEFAULT_PORT,
         'base' => self::REDIS_DEFAULT_BASE,
         'password' => self::REDIS_DEFAULT_PASSWORD,
-      );
+      ];
 
-      // Always prefer socket connection.
-      self::$_client = self::getClientInterface()->getClient(
-        $settings['host'],
-        $settings['port'],
-        $settings['base'],
-        $settings['password']);
+      // If using replication, lets create the client appropriately.
+      if (isset($settings['replication']) && $settings['replication'] === TRUE) {
+        foreach ($settings['replication.host'] as $key => $replicationHost) {
+          if (!isset($replicationHost['port'])) {
+            $settings['replication.host'][$key]['port'] = self::REDIS_DEFAULT_PORT;
+          }
+        }
+
+        self::$_client = self::getClientInterface()->getClient(
+          $settings['host'],
+          $settings['port'],
+          $settings['base'],
+          $settings['password'],
+          $settings['replication.host']);
+      }
+      else {
+        self::$_client = self::getClientInterface()->getClient(
+          $settings['host'],
+          $settings['port'],
+          $settings['base'],
+          $settings['password']);
+      }
     }
 
     return self::$_client;

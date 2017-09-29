@@ -19,7 +19,7 @@ class RedisCacheTagsChecksum implements CacheTagsChecksumInterface, CacheTagsInv
    *
    * @var array
    */
-  protected $tagCache = array();
+  protected $tagCache = [];
 
   /**
    * A list of tags that have already been invalidated in this request.
@@ -28,18 +28,24 @@ class RedisCacheTagsChecksum implements CacheTagsChecksumInterface, CacheTagsInv
    *
    * @var array
    */
-  protected $invalidatedTags = array();
+  protected $invalidatedTags = [];
 
   /**
-   * @var \Redis
+   * {@inheritdoc}
    */
   protected $client;
+
+  /**
+   * @var string
+   */
+  protected $clientType;
 
   /**
    * Creates a PHpRedis cache backend.
    */
   public function __construct(ClientFactory $factory) {
     $this->client = $factory->getClient();
+    $this->clientType = $factory->getClientName();
   }
 
   /**
@@ -57,12 +63,25 @@ class RedisCacheTagsChecksum implements CacheTagsChecksumInterface, CacheTagsInv
       $keys_to_increment[] = $this->getTagKey($tag);
     }
     if ($keys_to_increment) {
-      $multi = $this->client->multi(\Redis::PIPELINE);
-      foreach ($keys_to_increment as $key) {
-        $multi->incr($key);
+
+      // We want to differentiate between PhpRedis and Redis clients.
+      if ($this->clientType === 'PhpRedis') {
+        $multi = $this->client->multi(\Redis::PIPELINE);
+        foreach ($keys_to_increment as $key) {
+          $multi->incr($key);
+        }
+        $multi->exec();
       }
-      $multi->exec();
+      elseif ($this->clientType === 'Predis') {
+
+        $pipe = $this->client->pipeline();
+        foreach ($keys_to_increment as $key) {
+          $pipe->incr($key);
+        }
+        $pipe->execute();
+      }
     }
+
   }
 
   /**
@@ -94,7 +113,7 @@ class RedisCacheTagsChecksum implements CacheTagsChecksumInterface, CacheTagsInv
 
     $fetch = array_values(array_diff($tags, array_keys($this->tagCache)));
     if ($fetch) {
-      $keys = array_map(array($this, 'getTagKey'), $fetch);
+      $keys = array_map([$this, 'getTagKey'], $fetch);
       foreach ($this->client->mget($keys) as $index => $invalidations) {
         $this->tagCache[$fetch[$index]] = $invalidations ?: 0;
       }
@@ -111,8 +130,8 @@ class RedisCacheTagsChecksum implements CacheTagsChecksumInterface, CacheTagsInv
    * {@inheritdoc}
    */
   public function reset() {
-    $this->tagCache = array();
-    $this->invalidatedTags = array();
+    $this->tagCache = [];
+    $this->invalidatedTags = [];
   }
 
   /**

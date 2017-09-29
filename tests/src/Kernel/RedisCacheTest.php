@@ -1,27 +1,31 @@
 <?php
 
-namespace Drupal\redis\Tests\Cache;
+namespace Drupal\Tests\redis\Kernel;
 
 use Drupal\Core\DependencyInjection\ContainerBuilder;
-use Drupal\system\Tests\Cache\GenericCacheBackendUnitTestBase;
+use Drupal\KernelTests\Core\Cache\GenericCacheBackendUnitTestBase;
 use Symfony\Component\DependencyInjection\Reference;
+use Drupal\Tests\redis\Traits\RedisTestInterfaceTrait;
 
 /**
- * Tests PhpRedis cache backend using GenericCacheBackendUnitTestBase.
+ * Tests Redis cache backend using GenericCacheBackendUnitTestBase.
  *
  * @group redis
  */
-class PhpRedisUnitTest extends GenericCacheBackendUnitTestBase {
+class RedisCacheTest extends GenericCacheBackendUnitTestBase {
+
+  use RedisTestInterfaceTrait;
 
   /**
    * Modules to enable.
    *
    * @var array
    */
-  public static $modules = array('system', 'redis');
+  public static $modules = ['system', 'redis'];
 
-  public function containerBuild(ContainerBuilder $container) {
-    parent::containerBuild($container);
+  public function register(ContainerBuilder $container) {
+    self::setUpSettings();
+    parent::register($container);
     // Replace the default checksum service with the redis implementation.
     if ($container->has('redis.factory')) {
       $container->register('cache_tags.invalidator.checksum', 'Drupal\redis\Cache\RedisCacheTagsChecksum')
@@ -29,7 +33,6 @@ class PhpRedisUnitTest extends GenericCacheBackendUnitTestBase {
         ->addTag('cache_tags_invalidator');
     }
   }
-
 
   /**
    * Creates a new instance of PhpRedis cache backend.

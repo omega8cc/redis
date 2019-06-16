@@ -103,7 +103,8 @@ if scan_delete ~= 0 then
       cursor = result[1]
       keys = result[2]
       for _, k in pairs(keys) do
-        if "1" == redis.call("HGET", k, "volatile") then
+        local key_type = redis.call("TYPE", k)
+        if "hash" == key_type and "1" == redis.call("HGET", k, "volatile") then
             redis.call("DEL", k)
             deleted_keys_count = deleted_keys_count + 1
         end
@@ -120,7 +121,8 @@ redis.log(redis.LOG_NOTICE, "Using KEYS command to delete.")
 local keys = redis.call('KEYS', ARGV[1])
 redis.log(redis.LOG_NOTICE, "KEYS command finished.")
 for _, k in ipairs(keys) do
-    if "1" == redis.call("HGET", k, "volatile") then
+    local key_type = redis.call("TYPE", k)
+    if "hash" == key_type and "1" == redis.call("HGET", k, "volatile") then
         redis.call("DEL", k)
         deleted_keys_count = deleted_keys_count + 1
     end

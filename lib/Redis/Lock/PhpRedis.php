@@ -108,7 +108,7 @@ class Redis_Lock_PhpRedis extends Redis_Lock_DefaultBackend {
 
     if ($client->get($key) == $id) {
       $client->multi();
-      $client->del($key);
+      $client->delete($key);
       $client->exec();
     }
     else {
@@ -131,7 +131,7 @@ class Redis_Lock_PhpRedis extends Redis_Lock_DefaultBackend {
       $owner = $client->get($key);
 
       if (empty($owner) || $owner == $id) {
-        $client->del($key);
+        $client->delete($key);
       }
     }
   }

@@ -87,11 +87,9 @@ class Redis_Lock_PhpRedis extends Redis_Lock_DefaultBackend {
   public function lockMayBeAvailable($name) {
     $client = $this->getClient();
     $key    = $this->getKey($name);
-    $id     = $this->getLockId();
+    $value  = $client->get($key);
 
-    $value = $client->get($key);
-
-    return FALSE === $value || $id == $value;
+    return FALSE === $value || NULL === $value;
   }
 
   public function lockRelease($name) {

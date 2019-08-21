@@ -87,7 +87,16 @@ class Redis_Lock_Predis extends Redis_Lock_DefaultBackend {
     $key    = $this->getKey($name);
     $value  = $client->get($key);
 
-    return FALSE === $value || NULL === $value;
+    // Support for HTTPRL parallel processing.
+    $parallel_processing = FALSE;
+    if (substr($name, 0, 7) == 'httprl_') {
+      $id = $this->getLockId();
+      if ($id == $value) {
+        $parallel_processing = TRUE;
+      }
+    }
+
+    return FALSE === $value || NULL === $value || $parallel_processing;
   }
 
   public function lockRelease($name) {

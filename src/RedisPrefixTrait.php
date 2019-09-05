@@ -43,7 +43,7 @@ trait RedisPrefixTrait {
    * @param string $prefix
    */
   public function setPrefix($prefix) {
-    if (!isset($this->prefix)) {
+    if (!isset($prefix)) {
       $this->prefix = $this->getDefaultPrefix();
     }
     else {

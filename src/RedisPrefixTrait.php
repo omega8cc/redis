@@ -23,12 +23,10 @@ trait RedisPrefixTrait {
     $ret = ''; // Ignore prefix defined in global.inc or local.settings.php
 
     if (isset($_SERVER['SERVER_NAME'])) {
-      //$ret = md5(preg_replace('`^www\.`', '', $_SERVER['SERVER_NAME'])) . '_x_';
-      $ret = preg_replace('`^www\.`', '', $_SERVER['SERVER_NAME']) . '_x_';
+      $ret = md5(preg_replace('`^www\.`', '', $_SERVER['SERVER_NAME'])) . '_sn_';
     }
     elseif (isset($_SERVER['HTTP_HOST'])) {
-      //$ret = md5(preg_replace('`^www\.`', '', $_SERVER['HTTP_HOST'])) . '_h_';
-      $ret = preg_replace('`^www\.`', '', $_SERVER['HTTP_HOST']) . '_h_';
+      $ret = md5(preg_replace('`^www\.`', '', $_SERVER['HTTP_HOST'])) . '_hh_';
     }
 
     if (empty($ret)) {

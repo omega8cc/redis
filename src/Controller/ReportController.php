@@ -2,6 +2,7 @@
 
 namespace Drupal\redis\Controller;
 
+use Predis\Client;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Datetime\DateFormatterInterface;
 use Drupal\Core\Url;
@@ -296,7 +297,7 @@ class ReportController extends ControllerBase {
         yield from $keys;
       }
     }
-    elseif ($this->redis instanceof \Predis\Client) {
+    elseif ($this->redis instanceof Client) {
       yield from new Keyspace($this->redis, $match, $count);
     }
   }

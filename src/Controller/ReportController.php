@@ -65,6 +65,8 @@ class ReportController extends ControllerBase {
    */
   public function overview() {
 
+    include_once DRUPAL_ROOT . '/core/includes/install.inc';
+
     $build['report'] = [
       '#type' => 'status_report',
       '#requirements' => [],
@@ -83,8 +85,6 @@ class ReportController extends ControllerBase {
 
       return $build;
     }
-
-    include_once DRUPAL_ROOT . '/core/includes/install.inc';
 
     $start = microtime(TRUE);
 

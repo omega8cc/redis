@@ -17,7 +17,7 @@ class PhpRedis extends CacheBase {
   protected $client;
 
   /**
-   * Creates a PhpRedis cache backend.
+   * Creates a PHpRedis cache backend.
    *
    * @param $bin
    *   The cache bin for which the object is created.

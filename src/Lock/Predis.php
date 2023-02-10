@@ -19,7 +19,7 @@ class Predis extends LockBackendAbstract {
   protected $client;
 
   /**
-   * Creates a Predis cache backend.
+   * Creates a PHpRedis cache backend.
    */
   public function __construct(ClientFactory $factory) {
     $this->client = $factory->getClient();

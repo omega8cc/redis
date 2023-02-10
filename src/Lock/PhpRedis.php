@@ -7,7 +7,7 @@ use Drupal\redis\ClientFactory;
 use Drupal\redis\RedisPrefixTrait;
 
 /**
- * PhpRedis lock backend implementation.
+ * Predis lock backend implementation.
  */
 class PhpRedis extends LockBackendAbstract {
 
@@ -19,7 +19,7 @@ class PhpRedis extends LockBackendAbstract {
   protected $client;
 
   /**
-   * Creates a PhpRedis cache backend.
+   * Creates a PHpRedis cache backend.
    */
   public function __construct(ClientFactory $factory) {
     $this->client = $factory->getClient();

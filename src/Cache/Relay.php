@@ -2,34 +2,52 @@
 
 namespace Drupal\redis\Cache;
 
+use Drupal\Component\Assertion\Inspector;
 use Drupal\Component\Serialization\SerializationInterface;
 use Drupal\Core\Cache\Cache;
 use Drupal\Core\Cache\CacheTagsChecksumInterface;
+use Drupal\Core\Site\Settings;
 
 /**
- * PhpRedis cache backend.
+ * Relay cache backend.
  */
-class PhpRedis extends CacheBase {
+class Relay extends CacheBase {
 
   /**
-   * @var \Redis
+   * @var \Relay\Relay
    */
   protected $client;
 
   /**
-   * Creates a PhpRedis cache backend.
+   * Creates a Relay cache backend.
    *
    * @param $bin
    *   The cache bin for which the object is created.
-   * @param \Redis $client
+   * @param \Relay\Relay $client
    * @param \Drupal\Core\Cache\CacheTagsChecksumInterface $checksum_provider
    * @param \Drupal\redis\Cache\SerializationInterface $serializer
    *   The serialization class to use.
    */
-  public function __construct($bin, \Redis $client, CacheTagsChecksumInterface $checksum_provider, SerializationInterface $serializer) {
+  public function __construct($bin, \Relay\Relay $client, CacheTagsChecksumInterface $checksum_provider, SerializationInterface $serializer) {
     parent::__construct($bin, $serializer);
     $this->client = $client;
     $this->checksumProvider = $checksum_provider;
+
+    // Exclude bins that should not be kept in memory
+    if (!$this->keepBinInMemory()) {
+      $this->client->addIgnorePattern($this->getKey('*'));
+    }
+  }
+
+  /**
+   * Returns whether this cache bin should be kept in memory.
+   *
+   * @return bool
+   *   TRUE if the Relay memory cache should be used.
+   */
+  protected function keepBinInMemory(): bool {
+    $in_memory_bins = Settings::get('redis_relay_memory_bins', ['container', 'bootstrap', 'config', 'discovery']);
+    return in_array($this->bin, $in_memory_bins);
   }
 
   /**
@@ -46,17 +64,9 @@ class PhpRedis extends CacheBase {
     // Build the list of keys to fetch.
     $keys = array_map([$this, 'getKey'], $cids);
 
-    // Optimize for the common case when only a single cache entry needs to
-    // be fetched, no pipeline is needed then.
-    if (count($keys) > 1) {
-      $pipe = $this->client->multi();
-      foreach ($keys as $key) {
-        $pipe->hgetall($key);
-      }
-      $result = $pipe->exec();
-    }
-    else {
-      $result = [$this->client->hGetAll(reset($keys))];
+    $result = [];
+    foreach ($keys as $key) {
+      $result[] = $this->client->hgetall($key);
     }
 
     // Loop over the cid values to ensure numeric indexes.

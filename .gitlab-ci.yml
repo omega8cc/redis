@@ -32,13 +32,19 @@ composer:
       - REDIS_INTERFACE:
           - PhpRedis
           - Predis
-          #- Relay
+          - Relay
   services:
     - name: wodby/mariadb:$MARIADB_TAG
       alias: mariadb
     - name: redis:6
   before_script:
     - sudo sed -i 's/zend.assertions = -1/zend.assertions = 1/g' /usr/local/etc/php/php.ini
+    - >
+      if [ "$REDIS_INTERFACE" == "Relay" ]; then
+        sudo curl -sSLf -o /usr/local/bin/install-php-extensions https://github.com/mlocati/docker-php-extension-installer/releases/latest/download/install-php-extensions
+        sudo chmod +x /usr/local/bin/install-php-extensions
+        sudo PHPIZE_DEPS="autoconf dpkg-dev dpkg file g++ gcc libc-dev make pkgconf re2c" PHP_INI_DIR="/usr/local/etc/php" install-php-extensions relay
+      fi
 
 phpunit-d9:
   variables:

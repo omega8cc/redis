@@ -5,9 +5,9 @@ namespace Drupal\redis\PersistentLock;
 use Drupal\redis\ClientFactory;
 
 /**
- * PhpRedis persistent lock backend
+ * Relay persistent lock backend
  */
-class PhpRedis extends \Drupal\redis\Lock\PhpRedis {
+class Relay extends \Drupal\redis\Lock\Relay {
 
   /**
    * Creates a PhpRedis persistent lock backend.

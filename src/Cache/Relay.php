@@ -108,10 +108,14 @@ class Relay extends CacheBase {
 
     // Build the cache item and save it as a hash array.
     $entry = $this->createEntryHash($cid, $data, $expire, $tags);
-    $pipe = $this->client->multi();
-    $pipe->hMset($key, $entry);
-    $pipe->expire($key, $ttl);
-    $pipe->exec();
+    if ($pipe = $this->client->multi()) {
+      $pipe->hMset($key, $entry);
+      $pipe->expire($key, $ttl);
+      $pipe->exec();
+    }
+    else {
+      trigger_error('Unable to start pipeline to write cache', E_USER_WARNING);
+    }
   }
 
   /**

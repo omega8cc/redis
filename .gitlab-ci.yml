@@ -10,34 +10,49 @@ include:
 # Start custom overrides.
 #
 
+.setup-extension: &setup-extension
+  # https://docs.gitlab.com/ee/ci/jobs/index.html#pre-collapse-sections
+  - echo -e "\e[0Ksection_start:`date +%s`:my_first_section[collapsed=true]\r\e[0KInstall PHP Extensions"
+  - >
+    if [ "$REDIS_INTERFACE" == "PhpRedis" ]; then
+      apt-get update
+      apt-get install -y --no-install-recommends $PHPIZE_DEPS
+      pecl install redis && docker-php-ext-enable redis
+    fi
+  - >
+    if [ "$REDIS_INTERFACE" == "Relay" ]; then
+      apt-get update
+      apt-get install -y --no-install-recommends $PHPIZE_DEPS
+      if [ ! -f /usr/src/php.tar.xz ]; then
+        PHP_URL="https://www.php.net/distributions/php-`php -r "echo phpversion();"`.tar.xz"
+        curl -fsSL -o /usr/src/php.tar.xz "$PHP_URL"
+      fi
+      curl -sSLf -o /usr/local/bin/install-php-extensions https://github.com/mlocati/docker-php-extension-installer/releases/latest/download/install-php-extensions
+      chmod +x /usr/local/bin/install-php-extensions
+      PHPIZE_DEPS="autoconf dpkg-dev dpkg file g++ gcc libc-dev make pkgconf re2c" PHP_INI_DIR="/usr/local/etc/php" install-php-extensions relay
+    fi
+  - echo -e "\e[0Ksection_end:`date +%s`:my_first_section\r\e[0K"
+
 variables:
   _SHOW_ENVIRONMENT_VARIABLES: 1
   REDIS_HOST: redis
+  REDIS_INTERFACE: PhpRedis
+  OPT_IN_TEST_PREVIOUS_MINOR: 1
 
-composer:
+.composer-base:
   before_script:
     - composer require --dev predis/predis --no-update
 
-phpunit:
+.phpunit-base:
   parallel:
     matrix:
       - REDIS_INTERFACE:
           - PhpRedis
           - Predis
           - Relay
+  before_script:
+    - *setup-extension
   services:
     - !reference [ .with-database ]
     - !reference [ .with-chrome ]
     - name: redis:6
-  before_script:
-    # https://docs.gitlab.com/ee/ci/jobs/index.html#pre-collapse-sections
-    - echo -e "\e[0Ksection_start:`date +%s`:my_first_section[collapsed=true]\r\e[0KInstall PHP Extensions"
-    - sudo sed -i 's/zend.assertions = -1/zend.assertions = 1/g' /usr/local/etc/php/php.ini
-    - pecl install redis && docker-php-ext-enable redis
-    - >
-      if [ "$REDIS_INTERFACE" == "Relay" ]; then
-        sudo curl -sSLf -o /usr/local/bin/install-php-extensions https://github.com/mlocati/docker-php-extension-installer/releases/latest/download/install-php-extensions
-        sudo chmod +x /usr/local/bin/install-php-extensions
-        sudo PHPIZE_DEPS="autoconf dpkg-dev dpkg file g++ gcc libc-dev make pkgconf re2c" PHP_INI_DIR="/usr/local/etc/php" install-php-extensions relay
-      fi
-    - echo -e "\e[0Ksection_end:`date +%s`:my_first_section\r\e[0K"

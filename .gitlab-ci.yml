@@ -38,6 +38,8 @@ variables:
   REDIS_HOST: redis
   REDIS_INTERFACE: PhpRedis
   OPT_IN_TEST_PREVIOUS_MINOR: 1
+  _TARGET_DB_TYPE: "mariadb"
+  _TARGET_DB_VERSION: "10.6"
 
 .composer-base:
   before_script:

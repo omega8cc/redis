@@ -158,7 +158,13 @@ abstract class CacheBase implements CacheBackendInterface {
     $in_transaction = \Drupal::database()->inTransaction();
     if ($in_transaction) {
       if (empty($this->delayedDeletions)) {
-        \Drupal::database()->addRootTransactionEndCallback([$this, 'postRootTransactionCommit']);
+        if (method_exists(\Drupal::database(), 'transactionManager')) {
+          \Drupal::database()->transactionManager()->addPostTransactionCallback([$this, 'postRootTransactionCommit']);
+        }
+        else {
+          /** @phpstan-ignore-next-line */
+          \Drupal::database()->addRootTransactionEndCallback([$this, 'postRootTransactionCommit']);
+        }
       }
       $this->delayedDeletions = array_unique(array_merge($this->delayedDeletions, $cids));
     }

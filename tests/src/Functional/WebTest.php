@@ -138,14 +138,14 @@ class WebTest extends BrowserTestBase {
     $edit["modules[field_ui][enable]"] = TRUE;
     $edit["modules[text][enable]"] = TRUE;
     $this->drupalGet('admin/modules');
-    $this->submitForm($edit, t('Install'));
-    $this->submitForm([], t('Continue'));
+    $this->submitForm($edit, 'Install');
+    $this->submitForm([], 'Continue');
 
     $assert = $this->assertSession();
 
     // The order of the modules is not guaranteed, so just assert that they are
     // all listed.
-    $assert->elementTextContains('css', '.messages--status', '6 modules have been enabled');
+    $assert->elementTextContains('css', '.messages--status', '6 modules have been');
     $assert->elementTextContains('css', '.messages--status', 'Field UI');
     $assert->elementTextContains('css', '.messages--status', 'Node');
     $assert->elementTextContains('css', '.messages--status', 'Text');
@@ -160,7 +160,7 @@ class WebTest extends BrowserTestBase {
       'type' => $node_type = mb_strtolower($this->randomMachineName()),
     ];
     $this->drupalGet('admin/structure/types/add');
-    $this->submitForm($edit, t('Save and manage fields'));
+    $this->submitForm($edit, 'Save and manage fields');
     $field_name = mb_strtolower($this->randomMachineName());
     $this->fieldUIAddNewField('admin/structure/types/manage/' . $node_type, $field_name, NULL, 'text');
 
@@ -171,7 +171,7 @@ class WebTest extends BrowserTestBase {
       'field_' . $field_name . '[0][value]' => $this->randomMachineName(),
     ];
     $this->drupalGet('node/add/' . $node_type);
-    $this->submitForm($edit, t('Save'));
+    $this->submitForm($edit, 'Save');
 
     // Test the output as anonymous user.
     $this->drupalLogout();
@@ -186,7 +186,7 @@ class WebTest extends BrowserTestBase {
     $update = [
       'title[0][value]' => $this->randomMachineName(),
     ];
-    $this->submitForm($update, t('Save'));
+    $this->submitForm($update, 'Save');
     $this->assertSession()->responseContains($update['title[0][value]']);
     $this->drupalGet('node');
     $this->assertSession()->responseContains($update['title[0][value]']);

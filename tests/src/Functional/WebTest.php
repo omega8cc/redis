@@ -5,6 +5,7 @@ namespace Drupal\Tests\redis\Functional;
 use Drupal\Component\Utility\OpCodeCache;
 use Drupal\Core\Database\Database;
 use Drupal\Core\Site\Settings;
+use Drupal\cron_queue_test\Plugin\QueueWorker\CronQueueTestException;
 use Drupal\Tests\BrowserTestBase;
 use Drupal\Tests\field_ui\Traits\FieldUiTestTrait;
 use Drupal\Tests\redis\Traits\RedisTestInterfaceTrait;
@@ -24,7 +25,7 @@ class WebTest extends BrowserTestBase {
    *
    * @var array
    */
-  protected static $modules = ['redis', 'block'];
+  protected static $modules = ['redis', 'block', 'cron_queue_test'];
 
   /**
    * {@inheritdoc}
@@ -195,6 +196,18 @@ class WebTest extends BrowserTestBase {
     $this->drupalGet('node');
     $this->clickLink($update['title[0][value]']);
     $this->assertSession()->responseContains($edit['body[0][value]']);
+
+    // Manually add a queue item and process it, to test the queue factory.
+    // Get the queue to test the normal Exception.
+    $queue = \Drupal::queue(CronQueueTestException::PLUGIN_ID);
+
+    // Enqueue an item for processing.
+    $queue->createItem([$this->randomMachineName() => $this->randomMachineName()]);
+
+    // Run cron; the worker for this queue should throw an exception and handle
+    // it.
+    \Drupal::service('cron')->run();
+    $this->assertEquals(1, \Drupal::state()->get('cron_queue_test_exception'));
 
     // Get database schema.
     $db_schema = Database::getConnection()->schema();

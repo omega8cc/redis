@@ -2,13 +2,21 @@
 
 namespace Drupal\redis\Queue;
 
+use Drupal\Core\Queue\QueueFactoryInterface;
 use Drupal\Core\Site\Settings;
 use Drupal\redis\ClientFactory;
+
+// BC for Drupal core 10.1 and earlier.
+if (!interface_exists(QueueFactoryInterface::class)) {
+  interface BCQueueFactoryInterface {
+  }
+  class_alias(BCQueueFactoryInterface::class, QueueFactoryInterface::class);
+}
 
 /**
  * Defines the queue factory for the Redis backend.
  */
-class QueueRedisFactory {
+class QueueRedisFactory implements QueueFactoryInterface {
 
   /**
    * Queue implementation class namespace prefix.

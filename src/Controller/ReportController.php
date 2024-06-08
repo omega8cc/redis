@@ -169,9 +169,10 @@ class ReportController extends ControllerBase {
     }
 
     $end = microtime(TRUE);
+    /** @var array|false $memory_config */
     $memory_config = $this->redis->config('get', 'maxmemory*');
-
-    if ($memory_config['maxmemory']) {
+    // Redis default for maxmemory is 0 for "unlimited" (ie system limit).
+    if (!empty($memory_config['maxmemory'])) {
       $memory_value = $this->t('@used_memory / @max_memory (@used_percentage%), maxmemory policy: @policy', [
         '@used_memory' => $info['used_memory_human'] ?? $info['Memory']['used_memory_human'],
         '@max_memory' => static::formatSize($memory_config['maxmemory']),
@@ -182,7 +183,7 @@ class ReportController extends ControllerBase {
     else {
       $memory_value = $this->t('@used_memory / unlimited, maxmemory policy: @policy', [
         '@used_memory' => $info['used_memory_human'] ?? $info['Memory']['used_memory_human'],
-        '@policy' => $memory_config['maxmemory-policy'],
+        '@policy' => $memory_config['maxmemory-policy'] ?? '',
       ]);
     }
 
@@ -250,7 +251,7 @@ class ReportController extends ControllerBase {
     ];
 
     // Warnings/hints.
-    if ($memory_config['maxmemory-policy'] == 'noeviction') {
+    if (!empty($memory_config['maxmemory-policy']) && $memory_config['maxmemory-policy'] == 'noeviction') {
       $redis_url = Url::fromUri('https://redis.io/topics/lru-cache', [
         'fragment' => 'eviction-policies',
         'attributes' => [

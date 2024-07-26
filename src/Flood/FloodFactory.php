@@ -2,6 +2,7 @@
 
 namespace Drupal\redis\Flood;
 
+use Drupal\Core\Site\Settings;
 use Drupal\redis\ClientFactory;
 use Symfony\Component\HttpFoundation\RequestStack;
 
@@ -44,6 +45,14 @@ class FloodFactory {
    */
   public function get() {
     $class_name = $this->clientFactory->getClass(ClientFactory::REDIS_IMPL_FLOOD);
+
+    if (Settings::get('redis.failover', FALSE)) {
+      $client = $this->clientFactory->getClient();
+      if ($client === FALSE) {
+        return \Drupal::service('flood.failover');
+      }
+    }
+
     return new $class_name($this->clientFactory, $this->requestStack);
   }
 }

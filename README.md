@@ -90,6 +90,30 @@ needs to be configured for that.
 Additional configuration and features.
 ===============
 
+Use other backends as failover
+-------------------------------------
+
+You can tell Redis to fall back to database caching (or an alternative) if no
+connection can be made. This works for cache bins, lock, persistent lock, flood,
+and cache tag invalidation services. There is NO failover for service container
+storage. Include example.failover.services.yml rather than example.services.yml,
+and add the following lines to settings.php:
+
+    # Use failover services when Redis is not available.
+    $settings['container_yamls'][] = 'modules/redis/example.failover.services.yml';
+    $settings['redis.failover'] = TRUE;
+
+You can also override the service being used as a failover for cache bins. The
+default is to use the 'cache.backend.database' service.
+
+    # Use another cache backend as failover, in this case PHP file-based caching.
+    # NOTE: This is only an example, and not a recommended configuration.
+    $settings['redis.failover.cache_service'] = 'cache.backend.php';
+
+To override the failover service used for other services, make your own version
+of example.failover.services.yml with modified service definitions, or do the
+same in a site-specific services.yml file.
+
 Lock Backend
 ------------
 

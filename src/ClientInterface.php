@@ -9,8 +9,9 @@ interface ClientInterface {
   /**
    * Get the connected client instance.
    *
-   * @return mixed
-   *   Real client depends from the library behind.
+   * @return mixed|false
+   *   Real client depends from the library behind. FALSE if the client could
+   *   not connect.
    */
   public function getClient($host = NULL, $port = NULL, $base = NULL, $password = NULL, $replicationHosts = [], $persistent = FALSE);
 

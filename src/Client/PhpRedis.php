@@ -25,11 +25,20 @@ class PhpRedis implements ClientInterface {
       }
     }
 
-    if ($persistent) {
-      $client->pconnect($host, $port);
+    try {
+      if ($persistent) {
+        $client->pconnect($host, $port);
+      }
+      else {
+        $client->connect($host, $port);
+      }
     }
-    else {
-      $client->connect($host, $port);
+    catch (\RedisException $e) {
+      if (Settings::get('redis.failover', FALSE)) {
+        return FALSE;
+      }
+
+      throw $e;
     }
 
     if (isset($password)) {

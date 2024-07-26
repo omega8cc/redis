@@ -2,6 +2,7 @@
 
 namespace Drupal\redis\Client;
 
+use Drupal\Core\Site\Settings;
 use Drupal\redis\ClientInterface;
 use Predis\Client;
 
@@ -11,6 +12,9 @@ use Predis\Client;
  */
 class Predis implements ClientInterface {
 
+  /**
+   * {@inheritdoc}
+   */
   public function getClient($host = NULL, $port = NULL, $base = NULL, $password = NULL, $replicationHosts = [], $persistent = FALSE) {
     $connectionInfo = [
       'password' => $password,
@@ -54,8 +58,19 @@ class Predis implements ClientInterface {
     else {
       $client = new Client($connectionInfo);
     }
-    return $client;
 
+    try {
+      $client->connect();
+    }
+    catch (\Exception $e) {
+      if (Settings::get('redis.failover', FALSE)) {
+        return FALSE;
+      }
+
+      throw $e;
+    }
+
+    return $client;
   }
 
   public function getName() {

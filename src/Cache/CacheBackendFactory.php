@@ -5,6 +5,7 @@ namespace Drupal\redis\Cache;
 use Drupal\Component\Serialization\SerializationInterface;
 use Drupal\Core\Cache\CacheFactoryInterface;
 use Drupal\Core\Cache\CacheTagsChecksumInterface;
+use Drupal\Core\Site\Settings;
 use Drupal\redis\ClientFactory;
 
 /**
@@ -61,8 +62,17 @@ class CacheBackendFactory implements CacheFactoryInterface {
    */
   public function get($bin) {
     if (!isset($this->bins[$bin])) {
-      $class_name = $this->clientFactory->getClass(ClientFactory::REDIS_IMPL_CACHE);
-      $this->bins[$bin] = new $class_name($bin, $this->clientFactory->getClient(), $this->checksumProvider, $this->serializer);
+      $client = $this->clientFactory->getClient();
+
+      if ($client === FALSE && Settings::get('redis.failover', FALSE)) {
+        $cache_failover = Settings::get('redis.failover.cache_service', 'cache.backend.database');
+        $this->bins[$bin] = \Drupal::service($cache_failover)->get($bin);
+      }
+      else {
+        $class_name = $this->clientFactory->getClass(ClientFactory::REDIS_IMPL_CACHE);
+        $this->bins[$bin] = new $class_name($bin, $client, $this->checksumProvider, $this->serializer);
+      }
+
     }
     return $this->bins[$bin];
   }

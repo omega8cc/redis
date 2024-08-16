@@ -36,9 +36,10 @@ Add the new instance setting:
 Connect via UNIX socket
 -----------------------
 
-Just add this line to your settings.php file:
+Just add these lines to your settings.php file:
 
-  $conf['redis_cache_socket'] = '/tmp/redis.sock';
+   $settings['redis.connection']['host'] = '/tmp/redis.sock'; // Your Redis socket
+   $settings['redis.connection']['port'] = 0; // For socket connections the port must be 0
 
 Don't forget to change the path depending on your operating system and Redis
 server configuration.

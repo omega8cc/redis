@@ -13,7 +13,7 @@ You can download this library at:
 This is a PHP extension, too recent for being packaged in most distribution, you
 will probably need to compile it yourself.
 
-Default behavior is to connect via tcp://localhost:6379 but you might want to
+Default behavior is to connect via tcp://localhost:6379, but you might want to
 connect differently.
 
 Use the Sentinel high availability mode

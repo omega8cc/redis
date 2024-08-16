@@ -46,6 +46,9 @@ class ReportController extends ControllerBase {
   public function __construct(ClientFactory $client_factory, DateFormatterInterface $date_formatter) {
     if (ClientFactory::hasClient()) {
       $this->redis = $client_factory->getClient();
+      if ($this->redis instanceof \Predis\ClientInterface){
+        $this->redis = $this->redis->getClientBy('role', 'master');
+      }
     }
     else {
       $this->redis = FALSE;

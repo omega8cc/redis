@@ -42,13 +42,13 @@ class Predis implements ClientInterface {
 
         // Configure master.
         if ($replicationHost['role'] === 'primary') {
-          $param .= '&role=master';
+          $param .= '&alias=master';
         }
 
         $parameters[] = $param;
       }
 
-      $options = ['replication' => 'predis'];
+      $options = ['replication' => true];
       $client = new Client($parameters, $options);
     }
     else {

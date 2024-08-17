@@ -311,7 +311,7 @@ class ReportController extends ControllerBase {
    *
    * @return \Generator
    */
-  protected function scan($match, $count = 10000) {
+  protected function scan($match, $count = 1000) {
     $it = NULL;
     if ($this->redis instanceof \Redis || $this->redis instanceof \Relay\Relay) {
       while ($keys = $this->redis->scan($it, $this->getPrefix() . '*', $count)) {

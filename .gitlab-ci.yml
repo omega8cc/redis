@@ -61,3 +61,4 @@ variables:
     - !reference [ .with-database ]
     - !reference [ .with-chrome ]
     - name: redis:6
+      command: ["redis-server", "--maxmemory-policy", "allkeys-lru", "--maxmemory", "100M"]

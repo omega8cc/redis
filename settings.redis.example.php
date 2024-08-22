@@ -15,6 +15,10 @@ if (!InstallerKernel::installationAttempted() && extension_loaded('redis')) {
   // $settings['redis.connection']['host'] = '127.0.0.1';
   // $settings['redis.connection']['port'] = 6379;
 
+  // Use UNIX socket instead:
+  // $settings['redis.connection']['host'] = '/tmp/redis.sock'; // Your Redis socket
+  // $settings['redis.connection']['port'] = 0; // For socket connections the port must be 0
+
   // Customize used interface.
   // $settings['redis.connection']['interface'] = 'PhpRedis';
 

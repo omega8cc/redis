@@ -176,7 +176,7 @@ class ReportController extends ControllerBase {
       $memory_value = $this->t('@used_memory / @max_memory (@used_percentage%), maxmemory policy: @policy', [
         '@used_memory' => $info['used_memory_human'] ?? $info['Memory']['used_memory_human'],
         '@max_memory' => static::formatSize($memory_config['maxmemory']),
-        '@used_percentage' => (int) ($info['used_memory'] ?? $info['Memory']['used_memory'] / $memory_config['maxmemory'] * 100),
+        '@used_percentage' => (int) (($info['used_memory'] ?? $info['Memory']['used_memory']) / $memory_config['maxmemory'] * 100),
         '@policy' => $memory_config['maxmemory-policy'],
       ]);
     }
@@ -311,7 +311,7 @@ class ReportController extends ControllerBase {
    *
    * @return \Generator
    */
-  protected function scan($match, $count = 10000) {
+  protected function scan($match, $count = 1000) {
     $it = NULL;
     if ($this->redis instanceof \Redis || $this->redis instanceof \Relay\Relay) {
       while ($keys = $this->redis->scan($it, $this->getPrefix() . '*', $count)) {

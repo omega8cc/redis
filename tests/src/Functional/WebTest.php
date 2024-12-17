@@ -58,6 +58,9 @@ class WebTest extends BrowserTestBase {
       'default' => 'cache.backend.redis',
     ];
 
+    $settings['queue_default'] = 'queue.redis';
+
+
     $settings['container_yamls'][] = \Drupal::service('extension.list.module')->getPath('redis') . '/example.services.yml';
 
     $settings['bootstrap_container_definition'] = [
@@ -102,6 +105,8 @@ class WebTest extends BrowserTestBase {
       $contents .= "\n\n" . '$settings["redis.connection"]["host"] = "' . $host . '";';
     }
 
+    $contents .= "\n\n" . '$settings["queue_default"] = "queue.redis";';
+
     // Add the classloader.
     $contents .= "\n\n" . '$class_loader->addPsr4(\'Drupal\\\\redis\\\\\', \'' . \Drupal::service('extension.list.module')->getPath('redis') . '/src\');';
 
@@ -125,6 +130,7 @@ class WebTest extends BrowserTestBase {
     $db_schema->dropTable('cachetags');
     $db_schema->dropTable('semaphore');
     $db_schema->dropTable('flood');
+    $db_schema->dropTable('queue');
   }
 
   /**
@@ -246,6 +252,7 @@ class WebTest extends BrowserTestBase {
     $this->assertFalse($db_schema->tableExists('cachetags'));
     $this->assertFalse($db_schema->tableExists('semaphore'));
     $this->assertFalse($db_schema->tableExists('flood'));
+    $this->assertFalse($db_schema->tableExists('queue'));
   }
 
 }

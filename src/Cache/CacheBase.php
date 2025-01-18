@@ -7,6 +7,7 @@ use Drupal\Component\Assertion\Inspector;
 use Drupal\Component\Serialization\SerializationInterface;
 use Drupal\Core\Cache\Cache;
 use Drupal\Core\Cache\CacheBackendInterface;
+use Drupal\Core\Cache\ChainedFastBackend;
 use Drupal\Core\Site\Settings;
 use Drupal\redis\RedisPrefixTrait;
 
@@ -127,9 +128,33 @@ abstract class CacheBase implements CacheBackendInterface {
   }
 
   /**
+   * Checks whether the cache id is the last write timestamp.
+   *
+   * Cache requests for this are streamlined to bypass the full cache API as
+   * that needs two extra requests to check for delete or invalidate all flags.
+   *
+   * Most requests will only fetch this single timestamp from bins using the
+   * ChainedFast backend.
+   *
+   * @param string $cid
+   *   The requested cache id.
+   *
+   * @return bool
+   */
+  protected function isLastWriteTimestamp(string $cid): bool {
+    return $cid === ChainedFastBackend::LAST_WRITE_TIMESTAMP_PREFIX . 'cache_' . $this->bin;
+  }
+
+  /**
    * {@inheritdoc}
    */
   public function get($cid, $allow_invalid = FALSE) {
+
+    if ($this->isLastWriteTimestamp($cid)) {
+      $timestamp = $this->client->get($this->getPrefix() . ':' . $cid);
+      return $timestamp ? (object) ['data' => $timestamp] : NULL;
+    }
+
     $cids = [$cid];
     $cache = $this->getMultiple($cids, $allow_invalid);
     return reset($cache);
@@ -325,6 +350,10 @@ abstract class CacheBase implements CacheBackendInterface {
       if ($cache->valid && !$this->checksumProvider->isValid($cache->checksum, $cache->tags)) {
         $cache->valid = FALSE;
       }
+
+      // Remove the bin cache tag to not expose that, otherwise it is reused
+      // by the fast backend in the FastChained implementation.
+      $cache->tags = array_diff($cache->tags, [$this->getTagForBin()]);
     }
 
     // Ensure the entry does not predate the last delete all time.

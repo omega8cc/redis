@@ -339,7 +339,7 @@ abstract class CacheBase implements CacheBackendInterface {
 
     $cache = (object) $values;
 
-    $cache->tags = explode(' ', $cache->tags);
+    $cache->tags = $cache->tags ? explode(' ', $cache->tags) : [];
 
     // Check expire time, allow to have a cache invalidated explicitly, don't
     // check if already invalid.
@@ -351,9 +351,11 @@ abstract class CacheBase implements CacheBackendInterface {
         $cache->valid = FALSE;
       }
 
-      // Remove the bin cache tag to not expose that, otherwise it is reused
-      // by the fast backend in the FastChained implementation.
-      $cache->tags = array_diff($cache->tags, [$this->getTagForBin()]);
+      if (Settings::get('redis_invalidate_all_as_delete', FALSE) === FALSE) {
+        // Remove the bin cache tag to not expose that, otherwise it is reused
+        // by the fast backend in the FastChained implementation.
+        $cache->tags = array_diff($cache->tags, [$this->getTagForBin()]);
+      }
     }
 
     // Ensure the entry does not predate the last delete all time.
@@ -395,7 +397,9 @@ abstract class CacheBase implements CacheBackendInterface {
   protected function createEntryHash($cid, $data, $expire, array $tags) {
     // Always add a cache tag for the current bin, so that we can use that for
     // invalidateAll().
-    $tags[] = $this->getTagForBin();
+    if (Settings::get('redis_invalidate_all_as_delete', FALSE) === FALSE) {
+      $tags[] = $this->getTagForBin();
+    }
     assert(Inspector::assertAllStrings($tags), 'Cache Tags must be strings.');
     $hash = [
       'cid' => $cid,
@@ -441,8 +445,15 @@ abstract class CacheBase implements CacheBackendInterface {
    * {@inheritdoc}
    */
   public function invalidateAll() {
-    // To invalidate the whole bin, we invalidate a special tag for this bin.
-    $this->checksumProvider->invalidateTags([$this->getTagForBin()]);
+    if (Settings::get('redis_invalidate_all_as_delete', FALSE) === FALSE) {
+      // To invalidate the whole bin, we invalidate a special tag for this bin.
+      $this->checksumProvider->invalidateTags([$this->getTagForBin()]);
+    }
+    else {
+      // If the optimization for invalidate all is enabled, treat it as a
+      // deleteAll() so we only have to check one thing.
+      $this->deleteAll();
+    }
   }
 
   /**

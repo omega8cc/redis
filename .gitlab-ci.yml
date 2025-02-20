@@ -38,11 +38,13 @@ variables:
   REDIS_HOST: redis
   REDIS_INTERFACE: PhpRedis
   OPT_IN_TEST_PREVIOUS_MINOR: 1
+  OPT_IN_TEST_PREVIOUS_MAJOR: 1
   # Concurrency can not be enabled as environment variables are not passed
   # through
   _PHPUNIT_CONCURRENT: 0
-  _TARGET_DB_TYPE: "mariadb"
-  _TARGET_DB_VERSION: "10.6"
+  # Relay can currently not be installed with docker-php-extension-installer
+  # on ubuntu.
+  PHP_IMAGE_VARIANT: 'apache'
 
 .composer-base:
   before_script:

@@ -38,6 +38,9 @@ if (!InstallerKernel::installationAttempted() && extension_loaded('redis')) {
   // Customize the prefix, a reliable but long fallback is used if not defined.
   // $settings['cache_prefix'] = 'prefix';
 
+  // Additional optimizations, see README.md
+  // $settings['redis_invalidate_all_as_delete'] = TRUE;
+
   // Apply changes to the container configuration to better leverage Redis.
   // This includes using Redis for the lock and flood control systems, as well
   // as the cache tag checksum. Alternatively, copy the contents of that file

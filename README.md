@@ -87,6 +87,20 @@ needs to be configured for that.
       ],
     ];
 
+Additional cache optimizations
+===================
+
+These settings allow to further optimize caching but are not be fully compatible
+with the expected behavior of cache backends or have other tradeoffs.
+
+Treat invalidateAll() the same as deleteAll() to avoid two different checks for
+each bin.
+
+    $settings['redis_invalidate_all_as_delete'] = TRUE;
+
+Core may deprecate invalidateAll() in the future, this is essentially the same
+as https://www.drupal.org/project/drupal/issues/3498947.
+
 Additional configuration and features.
 ===============
 

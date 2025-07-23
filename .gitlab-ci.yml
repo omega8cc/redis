@@ -89,3 +89,8 @@ phpunit (valkey):
     - name: valkey/valkey:8
       alias: redis
       command: [ "valkey-server", "--maxmemory-policy", "allkeys-lru", "--maxmemory", "100M" ]
+
+pages:
+  before_script:
+    - mkdir docs
+    - mv *.md docs

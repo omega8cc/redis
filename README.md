@@ -15,7 +15,7 @@ it explicitly, use
 Each supported client has its own README client specific installation and
 configuration options.
 
-Common cache configuration
+Common configuration
 ===================
 
 See settings.redis.example.php for a quick start and recommended configuration.
@@ -87,60 +87,15 @@ needs to be configured for that.
       ],
     ];
 
-Additional cache optimizations
-===================
-
-These settings allow to further optimize caching but are not be fully compatible
-with the expected behavior of cache backends or have other tradeoffs.
-
-Treat invalidateAll() the same as deleteAll() to avoid two different checks for
-each bin.
-
-    $settings['redis_invalidate_all_as_delete'] = TRUE;
-
-Core has deprecated invalidateAll() in
-https://www.drupal.org/project/drupal/issues/3498947. This setting will be
-removed in the future when Drupal 12.0 is required.
-
-Additional configuration and features.
-===============
-
-Lock Backend
-------------
-
-See the provided example.services.yml file on how to override the lock services.
-
-Queue Backend
-------------------------------------
-
-This module provides reliable and non-reliable queue implementations. Depending
-on which is to be use you need to choose "queue.redis" or "queue.redis_reliable"
-as a service name.
-
-When you have configured basic information (host, library, ... - see Quick setup)
-add this to your settings.php file:
-
-    # Use for all queues unless otherwise specified for a specific queue.
-    $settings['queue_default'] = 'queue.redis';
-
-    # Or if you want to use reliable queue implementation.
-    $settings['queue_default'] = 'queue.redis_reliable';
-
-    # Use this to only use Redis for a specific queue (aggregator_feeds in this case).
-    $settings['queue_service_aggregator_feeds'] = 'queue.redis';
-
-    # Or if you want to use reliable queue implementation.
-    $settings['queue_service_aggregator_feeds'] = 'queue.redis_reliable';
-
 Use persistent connections
---------------------------
+===================
 
 This mode needs the following setting:
 
     $settings['redis.connection']['persistent'] = TRUE;
 
 Using a specific database
--------------------------
+===================
 
 Per default, Redis ships the database "0". All default connections will be use
 this one if nothing is specified.
@@ -151,7 +106,7 @@ use one in particular, just add to your settings.php file:
     $settings['redis.connection']['base']      = 12;
 
 Connection to a password protected instance
--------------------------------------------
+===================
 
 If you are using a password protected instance, specify the password this way:
 
@@ -159,14 +114,14 @@ If you are using a password protected instance, specify the password this way:
 
 Depending on the backend, using a wrong auth will behave differently:
 
- - Predis will throw an exception and make Drupal fail during early boostrap.
+- Predis will throw an exception and make Drupal fail during early boostrap.
 
- - PhpRedis will make Redis calls silent and creates some PHP warnings, thus
-   Drupal will behave as if it was running with a null cache backend (no cache
-   at all).
+- PhpRedis will make Redis calls silent and creates some PHP warnings, thus
+  Drupal will behave as if it was running with a null cache backend (no cache
+  at all).
 
 Prefixing site cache entries (avoiding sites name collision)
-------------------------------------------------------------
+===================
 
 If you need to differentiate multiple sites using the same Redis instance and
 database, you will need to specify a prefix for your site cache entries.
@@ -211,7 +166,7 @@ used for the APCU prefix, which is reasonably safe but quite long. Setting a
 explicit prefix is recommended.
 
 Redis memory management
-------------------------------------
+===================
 
 Redis is typically configured with a max memory size that it is allowed to use.
 
@@ -239,7 +194,7 @@ separate redis instance.
 See https://valkey.io/topics/lru-cache/ for a detailed explanation.
 
 Expiration of cache items
-------------------------------------
+===================
 
 Per default the TTL for permanent items will set to safe-enough value which is
 one year; No matter how Redis will be configured default configuration or lazy
@@ -283,6 +238,52 @@ might evict keys by TTL according to its configuration.
 
 Note: This behavior is off by default for BC, a default offset might be set in a
 future release.
+
+
+Cache optimizations
+===================
+
+These settings allow to further optimize caching but are not be fully compatible
+with the expected behavior of cache backends or have other tradeoffs.
+
+Treat invalidateAll() the same as deleteAll() to avoid two different checks for
+each bin.
+
+    $settings['redis_invalidate_all_as_delete'] = TRUE;
+
+Core has deprecated invalidateAll() in
+https://www.drupal.org/project/drupal/issues/3498947. This setting will be
+removed in the future when Drupal 12.0 is required.
+
+Additional backends
+===============
+
+Lock Backend
+------------
+
+See the provided example.services.yml file on how to override the lock services.
+
+Queue Backend
+------------------------------------
+
+This module provides reliable and non-reliable queue implementations. Depending
+on which is to be use you need to choose "queue.redis" or "queue.redis_reliable"
+as a service name.
+
+When you have configured basic information (host, library, ... - see Quick setup)
+add this to your settings.php file:
+
+    # Use for all queues unless otherwise specified for a specific queue.
+    $settings['queue_default'] = 'queue.redis';
+
+    # Or if you want to use reliable queue implementation.
+    $settings['queue_default'] = 'queue.redis_reliable';
+
+    # Use this to only use Redis for a specific queue (aggregator_feeds in this case).
+    $settings['queue_service_aggregator_feeds'] = 'queue.redis';
+
+    # Or if you want to use reliable queue implementation.
+    $settings['queue_service_aggregator_feeds'] = 'queue.redis_reliable';
 
 Testing
 =======

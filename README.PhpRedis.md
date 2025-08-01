@@ -1,8 +1,6 @@
 PhpRedis cache backend
 ======================
 
-This client, for now, is only able to use the PhpRedis extension.
-
 Get PhpRedis
 ------------
 
@@ -10,8 +8,7 @@ You can download this library at:
 
   https://github.com/phpredis/phpredis
 
-This is a PHP extension, too recent for being packaged in most distribution, you
-will probably need to compile it yourself.
+This is a PHP extension.
 
 Default behavior is to connect via tcp://localhost:6379, but you might want to
 connect differently.
@@ -25,6 +22,7 @@ More information about setting it : https://redis.io/topics/sentinel.
 This mode needs the following settings:
 
 Modify the host as follow:
+
     // Sentinels instances list with hostname:port format.
     $settings['redis.connection']['host']      = ['1.2.3.4:5000','1.2.3.5:5000','1.2.3.6:5000'];
 
@@ -38,8 +36,8 @@ Connect via UNIX socket
 
 Just add these lines to your settings.php file:
 
-   $settings['redis.connection']['host'] = '/tmp/redis.sock'; // Your Redis socket
-   $settings['redis.connection']['port'] = 0; // For socket connections the port must be 0
+    $settings['redis.connection']['host'] = '/tmp/redis.sock'; // Your Redis socket
+    $settings['redis.connection']['port'] = 0; // For socket connections the port must be 0
 
 Don't forget to change the path depending on your operating system and Redis
 server configuration.

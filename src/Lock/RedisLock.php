@@ -3,29 +3,44 @@
 namespace Drupal\redis\Lock;
 
 use Drupal\Core\Lock\LockBackendAbstract;
+use Drupal\redis\Client\Relay;
 use Drupal\redis\ClientFactory;
+use Drupal\redis\ClientInterface;
 use Drupal\redis\RedisPrefixTrait;
 
 /**
- * Predis lock backend implementation.
+ * PhpRedis lock backend implementation.
  */
-class Predis extends LockBackendAbstract {
+class RedisLock extends LockBackendAbstract {
 
   use RedisPrefixTrait;
 
   /**
-   * @var \Predis\Client
+   * @var \Drupal\redis\ClientInterface
    */
-  protected $client;
+  protected ClientInterface $client;
 
   /**
-   * Creates a Predis cache backend.
+   * Creates a PhpRedis cache backend.
    */
-  public function __construct(ClientFactory $factory) {
+  public function __construct(ClientFactory $factory, bool $persistent) {
     $this->client = $factory->getClient();
-    // __destruct() is causing problems with garbage collections, register a
-    // shutdown function instead.
-    drupal_register_shutdown_function([$this, 'releaseAll']);
+
+    if ($persistent) {
+      // Set the lockId to a fixed string to make the lock ID the same across
+      // multiple requests. The lock ID is used as a page token to relate all the
+      // locks set during a request to each other.
+      // @see \Drupal\Core\Lock\LockBackendInterface::getLockId()
+      $this->lockId = 'persistent';
+    }
+    else {
+      // __destruct() is causing problems with garbage collections, register a
+      // shutdown function instead.
+      drupal_register_shutdown_function([$this, 'releaseAll']);
+    }
+
+    // Don't cache locks in runtime memory.
+    $this->client->addIgnorePattern($this->getKey('*'));
   }
 
   /**
@@ -41,6 +56,9 @@ class Predis extends LockBackendAbstract {
     return $this->getPrefix() . ':lock:' . $name;
   }
 
+  /**
+   * {@inheritdoc}
+   */
   public function acquire($name, $timeout = 30.0) {
     $key    = $this->getKey($name);
     $id     = $this->getLockId();
@@ -64,7 +82,9 @@ class Predis extends LockBackendAbstract {
         return FALSE;
       }
 
-      $result = $this->client->psetex($key, (int) ($timeout * 1000), $id);
+      $this->client->multi();
+      $this->client->set($key, $id, ['px' => (int) ($timeout * 1000)]);
+      $result = $this->client->exec();
 
       // If the set failed, someone else wrote the key, we failed to acquire
       // the lock.
@@ -80,10 +100,10 @@ class Predis extends LockBackendAbstract {
     else {
       // Use a SET with microsecond expiration and the NX flag, which will only
       // succeed if the key does not exist yet.
-      $result = $this->client->set($key, $id, 'nx', 'px', (int) ($timeout * 1000));
+      $result = $this->client->set($key, $id, ['nx', 'px' => (int) ($timeout * 1000)]);
 
-      // If the result is FALSE or NULL, we failed to acquire the lock.
-      if (FALSE === $result || NULL === $result) {
+      // If the result is FALSE, we failed to acquire the lock.
+      if (FALSE === $result) {
         return FALSE;
       }
 
@@ -92,13 +112,19 @@ class Predis extends LockBackendAbstract {
     }
   }
 
+  /**
+   * {@inheritdoc}
+   */
   public function lockMayBeAvailable($name) {
-    $key = $this->getKey($name);
+    $key    = $this->getKey($name);
     $value = $this->client->get($key);
 
     return $value === FALSE || $value === NULL;
   }
 
+  /**
+   * {@inheritdoc}
+   */
   public function release($name) {
     $key    = $this->getKey($name);
     $id     = $this->getLockId();
@@ -111,15 +137,18 @@ class Predis extends LockBackendAbstract {
     $this->client->watch($key);
 
     if ($this->client->get($key) == $id) {
-      $pipe = $this->client->pipeline();
-      $pipe->del([$key]);
-      $pipe->execute();
+      $this->client->multi();
+      $this->client->del($key);
+      $this->client->exec();
     }
     else {
       $this->client->unwatch();
     }
   }
 
+  /**
+   * {@inheritdoc}
+   */
   public function releaseAll($lock_id = NULL) {
     // We can afford to deal with a slow algorithm here, this should not happen
     // on normal run because we should have removed manually all our locks.
@@ -128,4 +157,3 @@ class Predis extends LockBackendAbstract {
     }
   }
 }
-

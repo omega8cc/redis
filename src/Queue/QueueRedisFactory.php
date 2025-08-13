@@ -17,12 +17,6 @@ if (!interface_exists(QueueFactoryInterface::class)) {
  * Defines the queue factory for the Redis backend.
  */
 class QueueRedisFactory implements QueueFactoryInterface {
-
-  /**
-   * Queue implementation class namespace prefix.
-   */
-  const CLASS_NAMESPACE = ClientFactory::REDIS_IMPL_QUEUE;
-
   /**
    * @var \Drupal\redis\ClientFactory
    */
@@ -49,18 +43,11 @@ class QueueRedisFactory implements QueueFactoryInterface {
   }
 
   /**
-   * Constructs a new queue object for a given name.
-   *
-   * @param string $name
-   *   The name of the collection holding key and value pairs.
-   *
-   * @return \Drupal\redis\Queue\PhpRedis|\Drupal\redis\Queue\Predis
-   *   A key/value store implementation for the given $collection.
+   * {@inheritdoc}
    */
   public function get($name) {
     $settings = $this->settings->get('redis_queue_' . $name, ['reserve_timeout' => NULL]);
-    $class_name = $this->clientFactory->getClass(static::CLASS_NAMESPACE);
-    return new $class_name($name, $settings, $this->clientFactory->getClient());
+    return new RedisQueue($name, $settings, $this->clientFactory->getClient());
   }
 
 }

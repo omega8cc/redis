@@ -5,6 +5,7 @@ namespace Drupal\Tests\redis\Functional\Lock;
 use Drupal\Component\Utility\OpCodeCache;
 use Drupal\Core\Database\Database;
 use Drupal\Core\Site\Settings;
+use Drupal\redis\Lock\RedisLock;
 use Drupal\Tests\system\Functional\Lock\LockFunctionalTest;
 use Drupal\Tests\redis\Traits\RedisTestInterfaceTrait;
 
@@ -62,9 +63,8 @@ class RedisLockFunctionalTest extends LockFunctionalTest {
    * {@inheritdoc}
    */
   public function testLockAcquire(): void {
-    $redis_interface = self::getRedisInterfaceEnv();
     $lock = $this->container->get('lock');
-    $this->assertInstanceOf('\Drupal\redis\Lock\\' . $redis_interface, $lock);
+    $this->assertInstanceOf(RedisLock::class, $lock);
 
     // Verify that a lock that has never been acquired is marked as available.
     // @todo Remove this line when #3002640 lands.
@@ -78,9 +78,8 @@ class RedisLockFunctionalTest extends LockFunctionalTest {
    * {@inheritdoc}
    */
   public function testPersistentLock(): void {
-    $redis_interface = self::getRedisInterfaceEnv();
     $persistent_lock = $this->container->get('lock.persistent');
-    $this->assertInstanceOf('\Drupal\redis\PersistentLock\\' . $redis_interface, $persistent_lock);
+    $this->assertInstanceOf(RedisLock::class, $persistent_lock);
 
     // Verify that a lock that has never been acquired is marked as available.
     // @todo Remove this line when #3002640 lands.

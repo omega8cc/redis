@@ -6,7 +6,7 @@ use Drupal\Component\Datetime\Time;
 use Drupal\Core\Cache\Cache;
 use Drupal\Core\DependencyInjection\ContainerBuilder;
 use Drupal\KernelTests\Core\Cache\GenericCacheBackendUnitTestBase;
-use Drupal\redis\Cache\CacheBase;
+use Drupal\redis\Cache\RedisBackend;
 use Symfony\Component\DependencyInjection\Reference;
 use Drupal\Tests\redis\Traits\RedisTestInterfaceTrait;
 
@@ -43,12 +43,11 @@ class RedisCacheTest extends GenericCacheBackendUnitTestBase {
   /**
    * Creates a new instance of PhpRedis cache backend.
    *
-   * @return \Drupal\redis\Cache\PhpRedis
+   * @return \Drupal\redis\Cache\RedisBackend
    *   A new PhpRedis cache backend.
    */
   protected function createCacheBackend($bin) {
     $cache = \Drupal::service('cache.backend.redis')->get($bin);
-    $cache->setMinTtl(10);
     return $cache;
   }
 
@@ -129,19 +128,19 @@ class RedisCacheTest extends GenericCacheBackendUnitTestBase {
       'perm_ttl_seconds' => 1,
    ]);
 
-    /** @var \Drupal\redis\Cache\CacheBase $backend */
+    /** @var \Drupal\redis\Cache\RedisBackend $backend */
     $backend = $this->getCacheBackend();
-    $this->assertEquals(CacheBase::LIFETIME_PERM_DEFAULT, $backend->getPermTtl());
+    $this->assertEquals(RedisBackend::LIFETIME_PERM_DEFAULT, $backend->getPermTtl());
 
-    /** @var \Drupal\redis\Cache\CacheBase $backend */
+    /** @var \Drupal\redis\Cache\RedisBackend $backend */
     $backend = $this->getCacheBackend('seconds');
     $this->assertEquals(3600, $backend->getPermTtl());
 
-    /** @var \Drupal\redis\Cache\CacheBase $backend */
+    /** @var \Drupal\redis\Cache\RedisBackend $backend */
     $backend = $this->getCacheBackend('datestring');
     $this->assertEquals(90061, $backend->getPermTtl());
 
-    /** @var \Drupal\redis\Cache\CacheBase $backend */
+    /** @var \Drupal\redis\Cache\RedisBackend $backend */
     $backend = $this->getCacheBackend('legacy');
     $this->assertEquals(900, $backend->getPermTtl());
 

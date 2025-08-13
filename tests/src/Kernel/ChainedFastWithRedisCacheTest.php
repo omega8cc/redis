@@ -21,7 +21,6 @@ class ChainedFastWithRedisCacheTest extends RedisCacheTest {
    */
   protected function createCacheBackend($bin) {
     $consistent_backend = \Drupal::service('cache.backend.redis')->get($bin);
-    $consistent_backend->setMinTtl(10);
     $fast_backend = new PhpBackend($bin, \Drupal::service('cache_tags.invalidator.checksum'), \Drupal::service(TimeInterface::class));
     $backend = new ChainedFastBackend($consistent_backend, $fast_backend, $bin);
     // Explicitly register the cache bin as it can not work through the
@@ -36,7 +35,6 @@ class ChainedFastWithRedisCacheTest extends RedisCacheTest {
   public function testExpirationOffset(): void {
     $this->markTestSkipped('Can not test redis expiration behavior through chained fast backend.');
   }
-
 
   /**
    * Tests setPermTtl()

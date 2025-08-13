@@ -4,20 +4,21 @@ namespace Drupal\redis\Flood;
 
 use Drupal\Core\Flood\FloodInterface;
 use Drupal\redis\ClientFactory;
+use Drupal\redis\ClientInterface;
 use Drupal\redis\RedisPrefixTrait;
 use Symfony\Component\HttpFoundation\RequestStack;
 
 /**
- * Defines the database flood backend. This is the default Drupal backend.
+ * Defines the redis flood backend.
  */
-class PhpRedis implements FloodInterface {
+class RedisFloodBackend implements FloodInterface {
 
   use RedisPrefixTrait;
 
   /**
-   * @var \Redis
+   * @var \Drupal\redis\ClientInterface
    */
-  protected $client;
+  protected ClientInterface $client;
 
   /**
    * The request stack.

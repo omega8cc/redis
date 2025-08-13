@@ -7,24 +7,18 @@ use Drupal\Component\Assertion\Inspector;
 use Drupal\Component\Serialization\SerializationInterface;
 use Drupal\Core\Cache\Cache;
 use Drupal\Core\Cache\CacheBackendInterface;
+use Drupal\Core\Cache\CacheTagsChecksumInterface;
 use Drupal\Core\Cache\ChainedFastBackend;
 use Drupal\Core\Site\Settings;
+use Drupal\redis\ClientInterface;
 use Drupal\redis\RedisPrefixTrait;
 
 /**
  * Base class for redis cache backends.
- *
- *  *
- *
  */
-abstract class CacheBase implements CacheBackendInterface {
+class RedisBackend implements CacheBackendInterface {
 
   use RedisPrefixTrait;
-
-  /**
-   * Temporary cache items lifetime is infinite.
-   */
-  const LIFETIME_INFINITE = 0;
 
   /**
    * Default lifetime for permanent items.
@@ -33,32 +27,9 @@ abstract class CacheBase implements CacheBackendInterface {
   const LIFETIME_PERM_DEFAULT = 31536000;
 
   /**
-   * Computed keys are let's say around 60 characters length due to
-   * key prefixing, which makes 1,000 keys DEL command to be something
-   * around 50,000 bytes length: this is huge and may not pass into
-   * Redis, let's split this off.
-   * Some recommend to never get higher than 1,500 bytes within the same
-   * command which makes us forced to split this at a very low threshold:
-   * 20 seems a safe value here (1,280 average length).
-   */
-  const KEY_THRESHOLD = 20;
-
-  /**
    * Latest delete all flush KEY name.
    */
   const LAST_DELETE_ALL_KEY = '_redis_last_delete_all';
-
-  /**
-   * @var string
-   */
-  protected $bin;
-
-  /**
-   * The serialization class to use.
-   *
-   * @var \Drupal\Component\Serialization\SerializationInterface
-   */
-  protected $serializer;
 
   /**
    * Default TTL for CACHE_PERMANENT items.
@@ -68,27 +39,7 @@ abstract class CacheBase implements CacheBackendInterface {
    *
    * @var int
    */
-  protected $permTtl = self::LIFETIME_PERM_DEFAULT;
-
-  /**
-   * Minimal TTL to use.
-   *
-   * Note that this is for testing purposes. Do not specify the minimal TTL
-   * outside of unit-tests.
-   */
-  protected $minTtl = 0;
-
-  /**
-   * @var \Drupal\redis\ClientInterface
-   */
-  protected $client;
-
-  /**
-   * The cache tags checksum provider.
-   *
-   * @var \Drupal\Core\Cache\CacheTagsChecksumInterface|\Drupal\Core\Cache\CacheTagsInvalidatorInterface
-   */
-  protected $checksumProvider;
+  protected int $permTtl = self::LIFETIME_PERM_DEFAULT;
 
   /**
    * The last delete timestamp.
@@ -114,17 +65,22 @@ abstract class CacheBase implements CacheBackendInterface {
     return $this->permTtl;
   }
 
-  /**
-   * CacheBase constructor.
-   * @param $bin
-   *   The cache bin for which the object is created.
-   * @param \Drupal\Component\Serialization\SerializationInterface $serializer
-   *   The serialization class to use.
-   */
-  public function __construct($bin, SerializationInterface $serializer) {
-    $this->bin = $bin;
-    $this->serializer = $serializer;
+  public function __construct(protected string $bin, protected ClientInterface $client, protected CacheTagsChecksumInterface $checksumProvider, protected SerializationInterface $serializer) {
     $this->setPermTtl();
+
+    // Exclude bins that should not be kept in memory
+    $this->client->addIgnorePattern($this->getKey('*'));
+  }
+
+  /**
+   * Returns whether this cache bin should be kept in memory.
+   *
+   * @return bool
+   *   TRUE if the Relay memory cache should be used.
+   */
+  protected function keepBinInMemory(): bool {
+    $in_memory_bins = Settings::get('redis_relay_memory_bins', ['container', 'bootstrap', 'config', 'discovery']);
+    return in_array($this->bin, $in_memory_bins);
   }
 
   /**
@@ -180,35 +136,93 @@ abstract class CacheBase implements CacheBackendInterface {
    * {@inheritdoc}
    */
   public function deleteMultiple(array $cids) {
-    $in_transaction = \Drupal::database()->inTransaction();
+    /** @phpstan-ignore-next-line */
+    $database = \Drupal::database();
+    $in_transaction = $database->inTransaction();
     if ($in_transaction) {
       if (empty($this->delayedDeletions)) {
-        if (method_exists(\Drupal::database(), 'transactionManager')) {
-          \Drupal::database()->transactionManager()->addPostTransactionCallback([$this, 'postRootTransactionCommit']);
+        if (method_exists($database, 'transactionManager')) {
+          $database->transactionManager()->addPostTransactionCallback([$this, 'postRootTransactionCommit']);
         }
         else {
           /** @phpstan-ignore-next-line */
-          \Drupal::database()->addRootTransactionEndCallback([$this, 'postRootTransactionCommit']);
+          $database->addRootTransactionEndCallback([$this, 'postRootTransactionCommit']);
         }
       }
       $this->delayedDeletions = array_unique(array_merge($this->delayedDeletions, $cids));
     }
-    else {
-      $this->doDeleteMultiple($cids);
+    elseif ($cids) {
+      $keys = array_map([$this, 'getKey'], $cids);
+      $this->client->del($keys);
     }
   }
 
+
   /**
-   * Execute the deletion.
-   *
-   * This can be delayed to avoid race conditions.
-   *
-   * @param array $cids
-   *   An array of cache IDs to delete.
-   *
-   * @see static::deleteMultiple()
+   * {@inheritdoc}
    */
-  protected abstract function doDeleteMultiple(array $cids);
+  public function getMultiple(&$cids, $allow_invalid = FALSE) {
+    // Avoid an error when there are no cache ids.
+    if (empty($cids)) {
+      return [];
+    }
+
+    $return = [];
+
+    // Build the list of keys to fetch.
+    $keys = array_map([$this, 'getKey'], $cids);
+
+    $this->client->pipeline();
+    foreach ($keys as $key) {
+      $this->client->hgetall($key);
+    }
+    $result = $this->client->exec();
+
+    // Loop over the cid values to ensure numeric indexes.
+    foreach (array_values($cids) as $index => $key) {
+      // Check if a valid result was returned from Redis.
+      if (isset($result[$index]) && is_array($result[$index])) {
+        // Check expiration and invalidation and convert into an object.
+        $item = $this->expandEntry($result[$index], $allow_invalid);
+        if ($item) {
+          $return[$item->cid] = $item;
+        }
+      }
+    }
+
+    // Remove fetched cids from the list.
+    $cids = array_diff($cids, array_keys($return));
+
+    return $return;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function set($cid, $data, $expire = Cache::PERMANENT, array $tags = []) {
+
+    if ($this->isLastWriteTimestamp($cid)) {
+      $this->client->set($this->getPrefix() . ':' . $cid, $data);
+      return;
+    }
+
+    $ttl = $this->getExpiration($expire);
+
+    $key = $this->getKey($cid);
+
+    // If the item is already expired, delete it.
+    if ($ttl <= 0) {
+      $this->delete($key);
+    }
+
+    // Build the cache item and save it as a hash array.
+    $entry = $this->createEntryHash($cid, $data, $expire, $tags);
+
+    $this->client->pipeline();
+    $this->client->hMset($key, $entry);
+    $this->client->expire($key, $ttl);
+    $this->client->exec();
+  }
 
   /**
    * Callback to be invoked after a database transaction gets committed.
@@ -219,8 +233,9 @@ abstract class CacheBase implements CacheBackendInterface {
    *   Whether or not the transaction was successful.
    */
   public function postRootTransactionCommit($success) {
-    if ($success) {
-      $this->doDeleteMultiple($this->delayedDeletions);
+    if ($success && $this->delayedDeletions) {
+      $keys = array_map([$this, 'getKey'], $this->delayedDeletions);
+      $this->client->del($keys);
     }
     $this->delayedDeletions = [];
   }
@@ -269,26 +284,20 @@ abstract class CacheBase implements CacheBackendInterface {
       return $this->permTtl;
     }
 
+    /** @phpstan-ignore-next-line */
     $expire_ttl = $expire - \Drupal::time()->getRequestTime();
     if ($expire_ttl > $this->permTtl) {
       return $this->permTtl;
     }
 
     return $expire_ttl + $redis_ttl_offset;
-   }
+  }
 
   /**
    * Return the key for the tag used to specify the bin of cache-entries.
    */
   protected function getTagForBin() {
     return 'x-redis-bin:' . $this->bin;
-  }
-
-  /**
-   * Set the minimum TTL (unit testing only).
-   */
-  public function setMinTtl($ttl) {
-    $this->minTtl = $ttl;
   }
 
   /**
@@ -357,7 +366,7 @@ abstract class CacheBase implements CacheBackendInterface {
     // Check expire time, allow to have a cache invalidated explicitly, don't
     // check if already invalid.
     if ($cache->valid) {
-      //var_dump($cache->expire, \Drupal::time()->getRequestTime(), $cache->expire - \Drupal::time()->getRequestTime());
+      /** @phpstan-ignore-next-line */
       $cache->valid = $cache->expire == Cache::PERMANENT || $cache->expire >= \Drupal::time()->getRequestTime();
 
       // Check if invalidateTags() has been called with any of the items's tags.

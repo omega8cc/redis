@@ -7,7 +7,9 @@ use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Datetime\DateFormatterInterface;
 use Drupal\Core\StringTranslation\ByteSizeMarkup;
 use Drupal\Core\Url;
+use Drupal\redis\Client\Relay;
 use Drupal\redis\ClientFactory;
+use Drupal\redis\ClientInterface;
 use Drupal\redis\RedisPrefixTrait;
 use Predis\Client;
 use Predis\Collection\Iterator\Keyspace;
@@ -24,42 +26,20 @@ class ReportController extends ControllerBase {
 
   /**
    * The redis client.
-   *
-   * @var \Redis|\Relay\Relay|\Predis\Client|\RedisCluster|false
    */
-  protected $redis;
+  protected ?ClientInterface $redis = NULL;
 
-  /**
-   * The date formatter.
-   *
-   * @var \Drupal\Core\Datetime\DateFormatterInterface
-   */
-  protected $dateFormatter;
-
-  /**
-   * ReportController constructor.
-   *
-   * @param \Drupal\redis\ClientFactory $client_factory
-   *   The client factory.
-   * @param \Drupal\Core\Datetime\DateFormatterInterface $date_formatter
-   *   The date formatter.
-   */
-  public function __construct(ClientFactory $client_factory, DateFormatterInterface $date_formatter) {
-    if (ClientFactory::hasClient()) {
-      $this->redis = $client_factory->getClient();
+  public function __construct(protected ClientFactory $clientFactory, protected DateFormatterInterface $dateFormatter, protected array $cacheBins, protected array $rendererConfig) {
+    if ($this->clientFactory->hasClient()) {
+      $this->redis = $this->clientFactory->getClient();
     }
-    else {
-      $this->redis = FALSE;
-    }
-
-    $this->dateFormatter = $date_formatter;
   }
 
   /**
    * {@inheritdoc}
    */
   public static function create(ContainerInterface $container) {
-    return new static($container->get('redis.factory'), $container->get('date.formatter'));
+    return new static($container->get('redis.factory'), $container->get('date.formatter'), $container->getParameter('cache_bins'), $container->getParameter('renderer.config'));
   }
 
   /**
@@ -82,13 +62,13 @@ class ReportController extends ControllerBase {
       ];
     }
 
-    if ($this->redis === FALSE) {
+    if ($this->redis === NULL) {
 
       $build['report']['#requirements']['client'] = [
-          'title' => 'Redis',
-          'value' => t('Not connected.'),
-          'severity_status' => 'error',
-          'description' => t('No Redis client connected. Verify cache settings.'),
+        'title' => 'Redis',
+        'value' => t('Not connected.'),
+        'severity_status' => 'error',
+        'description' => t('No Redis client connected. Verify cache settings.'),
       ];
 
       return $build;
@@ -96,20 +76,20 @@ class ReportController extends ControllerBase {
 
     $start = microtime(TRUE);
 
-    $info = $this->info();
+    $info = $this->redis->info();
 
     $prefix_length = strlen($this->getPrefix()) + 1;
 
-    $entries_per_bin = array_fill_keys(\Drupal::getContainer()->getParameter('cache_bins'), 0);
+    $entries_per_bin = array_fill_keys($this->cacheBins, 0);
 
-    $required_cached_contexts = \Drupal::getContainer()->getParameter('renderer.config')['required_cache_contexts'];
+    $required_cached_contexts = $this->rendererConfig['required_cache_contexts'];
 
     $render_cache_totals = [];
     $render_cache_contexts = [];
     $cache_tags = [];
     $i = 0;
     $cache_tags_max = FALSE;
-    foreach ($this->scan($this->getPrefix() . '*') as $key) {
+    foreach ($this->redis->scan($this->getPrefix() . '*') as $key) {
       $i++;
       $second_colon_pos = mb_strpos($key, ':', $prefix_length);
       if ($second_colon_pos !== FALSE) {
@@ -140,8 +120,8 @@ class ReportController extends ControllerBase {
         }
         elseif ($bin == 'cachetags') {
           $cache_tag = mb_substr($key, $second_colon_pos + 1);
-          // @todo: Make the max configurable or allow ot override it through
-          // a query parameter.
+          // @todo Make the max configurable or allow ot override it through
+          //   a query parameter.
           if (count($cache_tags) < 50000) {
             $cache_tags[$cache_tag] = $this->redis->get($key);
           }
@@ -179,7 +159,7 @@ class ReportController extends ControllerBase {
 
     if (!empty($info['maxmemory'])) {
       $memory_value = $this->t('@used_memory / @max_memory (@used_percentage%), maxmemory policy: @policy', [
-        '@used_memory' => $info['used_memory_human'] ?? $info['Memory']['used_memory_human'],
+        '@used_memory' => $info['used_memory_human'],
         '@max_memory' => static::formatSize($info['maxmemory']),
         '@used_percentage' => (int) ($info['used_memory'] / $info['maxmemory'] * 100),
         '@policy' => $info['maxmemory_policy'] ?? '',
@@ -195,7 +175,7 @@ class ReportController extends ControllerBase {
     $requirements = [
       'client' => [
         'title' => $this->t('Client'),
-        'value' => t("Connected, using the <em>@name</em> client.", ['@name' => ClientFactory::getClientName()]),
+        'value' => t("Connected, using the <em>@name</em> client.", ['@name' => $this->clientFactory->getClientName()]),
       ],
       'version' => [
         'title' => $this->t('Version'),
@@ -303,7 +283,7 @@ class ReportController extends ControllerBase {
       unset($requirements['cache_tags']);
     }
 
-    if ($this->redis instanceof \Relay\Relay) {
+    if ($this->redis instanceof Relay) {
       $stats = $this->redis->stats();
 
       $requirements['relay'] = [
@@ -311,7 +291,7 @@ class ReportController extends ControllerBase {
         'value' => t("@used / @total memory usage, eviction policy: @policy", [
           '@used' => static::formatSize($stats['memory']['active'] ?? 0),
           '@total' => static::formatSize($stats['memory']['total'] ?? 0),
-          '@policy' => ini_get('relay.eviction_policy')
+          '@policy' => ini_get('relay.eviction_policy'),
         ]),
       ];
 
@@ -348,68 +328,19 @@ class ReportController extends ControllerBase {
   protected function scan($match, $count = 1000) {
     $it = NULL;
     if ($this->redis instanceof \Redis || $this->redis instanceof \Relay\Relay) {
-      while ($keys = $this->redis->scan($it, $this->getPrefix() . '*', $count)) {
+      while ($keys = $this->redis->scan($it, $match, $count)) {
         yield from $keys;
       }
     }
     elseif ($this->redis instanceof \RedisCluster) {
       $master = current($this->redis->_masters());
-      while ($keys = $this->redis->scan($it, $master, $this->getPrefix() . '*', $count)) {
+      while ($keys = $this->redis->scan($it, $master, $match, $count)) {
         yield from $keys;
       }
     }
     elseif ($this->redis instanceof Client) {
       yield from new Keyspace($this->redis, $match, $count);
     }
-  }
-
-  /**
-   * Wrapper to get various statistical information from Redis.
-   *
-   * @return array
-   *   Redis info.
-   */
-  protected function info() {
-    $normalized_info = [];
-    if ($this->redis instanceof \RedisCluster) {
-      $master = current($this->redis->_masters());
-      $info = $this->redis->info($master);
-    }
-    else {
-      $info = $this->redis->info();
-    }
-
-    $normalized_info['redis_version'] = $info['redis_version'] ?? $info['Server']['redis_version'];
-    $normalized_info['valkey_version'] = $info['valkey_version'] ?? NULL;
-    $normalized_info['redis_mode'] = $info['redis_mode'] ?? $info['Server']['redis_mode'] ?? NULL;
-    $normalized_info['connected_clients'] = $info['connected_clients'] ?? $info['Clients']['connected_clients'];
-    if ($this->redis instanceof \RedisCluster) {
-      $master = current($this->redis->_masters());
-      $normalized_info['db_size'] = $this->redis->dbSize($master);
-    }
-    else {
-      $normalized_info['db_size'] = $this->redis->dbSize();
-    }
-    $normalized_info['used_memory'] = $info['used_memory'] ?? $info['Memory']['used_memory'];
-    $normalized_info['used_memory_human'] = $info['used_memory_human'] ?? $info['Memory']['used_memory_human'];
-
-    if (empty($info['maxmemory_policy'])) {
-      $memory_config = $this->redis->config('get', 'maxmemory*');
-      $normalized_info['maxmemory_policy'] = $memory_config['maxmemory-policy'];
-      $normalized_info['maxmemory'] = $memory_config['maxmemory'];
-    }
-    else {
-      $normalized_info['maxmemory_policy'] = $info['maxmemory_policy'];
-      $normalized_info['maxmemory'] = $info['maxmemory'];
-    }
-
-    $normalized_info['uptime_in_seconds'] = $info['uptime_in_seconds'] ?? $info['Server']['uptime_in_seconds'] ?? NULL;
-    $normalized_info['total_net_output_bytes'] = $info['total_net_output_bytes'] ?? $info['Stats']['total_net_output_bytes'] ?? NULL;
-    $normalized_info['total_net_input_bytes'] = $info['total_net_input_bytes'] ?? $info['Stats']['total_net_input_bytes'] ?? NULL;
-    $normalized_info['total_commands_processed'] = $info['total_commands_processed'] ?? $info['Stats']['total_commands_processed'] ?? NULL;
-    $normalized_info['total_connections_received'] = $info['total_connections_received'] ?? $info['Stats']['total_connections_received'] ?? NULL;
-
-    return $normalized_info;
   }
 
   /**

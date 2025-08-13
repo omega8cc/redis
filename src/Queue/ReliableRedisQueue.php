@@ -2,43 +2,14 @@
 
 namespace Drupal\redis\Queue;
 
+use Drupal\Core\Queue\ReliableQueueInterface;
+
 /**
- * Redis queue implementation using Relay extension backend.
+ * Redis queue implementation using PhpRedis extension backend.
  *
  * @ingroup queue
  */
-class ReliableRelay extends ReliableQueueBase {
-
-  /**
-   * The Redis connection.
-   *
-   * @var \Relay\Relay $client
-   */
-  protected $client;
-
-  /**
-   * Constructs a \Drupal\redis\Queue\Relay object.
-   *
-   * @param string $name
-   *   The name of the queue.
-   * @param array $settings
-   *   Array of Redis-related settings for this queue.
-   * @param \Relay\Relay $client
-   *   The Relay client.
-   */
-  public function __construct($name, array $settings, \Relay\Relay $client) {
-    parent::__construct($name, $settings);
-    $this->client = $client;
-
-    // don't cache queue in runtime memory
-    $client->setOption(
-      $client::OPT_IGNORE_PATTERNS,
-      array_unique(array_merge(
-        $client->getOption($client::OPT_IGNORE_PATTERNS),
-        [static::KEY_PREFIX . $name . ':*']
-      ))
-    );
-  }
+class ReliableRedisQueue extends RedisQueue implements ReliableQueueInterface {
 
   /**
    * {@inheritdoc}
@@ -46,20 +17,20 @@ class ReliableRelay extends ReliableQueueBase {
   public function createItem($data) {
     $record = new \stdClass();
     $record->data = $data;
-    $record->qid = $this->incrementId();
+    $record->item_id = $this->incrementId();
     // We cannot rely on REQUEST_TIME because many items might be created
     // by a single request which takes longer than 1 second.
     $record->timestamp = time();
 
-    $result = $this->client->multi()
-      ->hsetnx($this->availableItems, $record->qid, serialize($record))
-      ->lLen($this->availableListKey)
-      ->lpush($this->availableListKey, $record->qid)
-      ->exec();
+     $this->client->multi();
+     $this->client->hsetnx($this->availableItems, $record->item_id, serialize($record));
+     $this->client->lLen($this->availableListKey);
+     $this->client->lpush($this->availableListKey, $record->item_id);
+     $result = $this->client->exec();
 
     $success = $result[0] && $result[2] > $result[1];
 
-    return $success ? $record->qid : FALSE;
+    return $success ? $record->item_id : FALSE;
   }
 
   /**
@@ -100,7 +71,8 @@ class ReliableRelay extends ReliableQueueBase {
       $job = $this->client->hget($this->availableItems, $qid);
       if ($job) {
         $item = unserialize($job);
-        $this->client->setex($this->leasedKeyPrefix . $item->qid, $lease_time, '1');
+        $item->item_id ??= $item->qid;
+        $this->client->setex($this->leasedKeyPrefix . $item->item_id, $lease_time, '1');
       }
     }
 
@@ -111,20 +83,21 @@ class ReliableRelay extends ReliableQueueBase {
    * {@inheritdoc}
    */
   public function releaseItem($item) {
-    $this->client->multi()
-      ->lrem($this->claimedListKey, $item->qid, -1)
-      ->lpush($this->availableListKey, $item->qid)
-      ->exec();
+    $this->client->multi();
+    $this->client->lrem($this->claimedListKey, $item->item_id, -1);
+    $this->client->lpush($this->availableListKey, $item->item_id);
+    $this->client->exec();
+    return TRUE;
   }
 
   /**
    * {@inheritdoc}
    */
   public function deleteItem($item) {
-    $this->client->multi()
-      ->lrem($this->claimedListKey, $item->qid, -1)
-      ->hdel($this->availableItems, $item->qid)
-      ->exec();
+    $this->client->multi();
+    $this->client->lrem($this->claimedListKey, $item->item_id, -1);
+    $this->client->hdel($this->availableItems, $item->item_id);
+    $this->client->exec();
   }
 
   /**
@@ -152,12 +125,11 @@ class ReliableRelay extends ReliableQueueBase {
     foreach ($this->client->lrange($this->claimedListKey, 0, -1) as $qid) {
       if (!$this->client->exists($this->leasedKeyPrefix . $qid)) {
         // The lease expired for this ID.
-        $this->client->multi()
-          ->lrem($this->claimedListKey, $qid, -1)
-          ->lpush($this->availableListKey, $qid)
-          ->exec();
+        $this->client->multi();
+        $this->client->lrem($this->claimedListKey, $qid, -1);
+        $this->client->lpush($this->availableListKey, $qid);
+        $this->client->exec();
       }
     }
   }
-
 }

@@ -138,7 +138,7 @@ class RedisBackend implements CacheBackendInterface {
   public function deleteMultiple(array $cids) {
     /** @phpstan-ignore-next-line */
     $database = \Drupal::database();
-    $in_transaction = $database->inTransaction();
+    $in_transaction = $database?->inTransaction();
     if ($in_transaction) {
       if (empty($this->delayedDeletions)) {
         if (method_exists($database, 'transactionManager')) {

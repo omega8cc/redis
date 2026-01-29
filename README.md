@@ -395,14 +395,16 @@ a considerable optimization in terms of unserialization speed and size of serial
 
 To use, first require https://www.drupal.org/project/igbinary with composer.
 
-It is possible to use the serialization API with enabling the module by
+It is possible to use the serialization API without enabling the module by
 requiring the necessary services directly.
 
     // Directly load the igbinary services without enabling the module.
     $settings['container_yamls'][] = 'modules/contrib/igbinary/igbinary.services.yml';
 
-Then redefine the cache.backend.redis service to use igbinary, by placing the
-following in a project specific services.yml, such as sites/default/services.yml.
+Then redefine the `cache.backend.redis` service to use igbinary, by placing the
+following in a project specific services.yml. This file must be added after
+`redis.services.yml` in `$settings['container_yamls']` to be able to override
+the definition.
 
     # Override the default redis cache backend to use igbinary serialization.
     cache.backend.redis:

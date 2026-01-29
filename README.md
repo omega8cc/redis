@@ -98,6 +98,61 @@ You can see Drupal specific info via the built-in Redis report in Drupal under
 - Keys per cache bin
 - Render cache entries with most variations
 
+### Drush report
+
+As of 2.0.0-alpha2, there is also a `redis:report` drush command, which
+provides similar but also additional information. It is significantly slower on
+large installations, but less likely to run into memory limits or timeouts.
+
+There is also a `redis:tag-usage` that will list items using a given cache tag
+and whether it is invalidated.
+
+It additionally provides the following information:
+- Per-bin statistics are extended with total size, number of expired and
+  invalidated cache items.
+- Invalidated cache tags include the number of cache items that use them
+  and an impact column, that the number of invalidations multiplied by usages
+
+### Suggestions on identifying and improving performance
+
+This focuses on the additional information visible only in the drush report.
+
+- It's best to run the report after a site has been running regularly for some
+  time, when caches ar warm and invalidations have been happening.
+- The more memory that redis can use, the better. However, it is very likely
+  that no matter how large it is, it will fill up and setting up eviction is
+  necessary. See eviction chapter.
+- Consider the read/write ratio, a high percentage of writes indicates many
+  caches being replaced/evicted.
+- Generic hit rates are not necessarily a good indicator of cache performance.
+  Specifically misses on cache tags are expected and not an issue, and general
+  redis reporting tools will not make this distinction.
+- If cache bins have a large amount of expired items, ensure that a ttl offset
+  is set, to guide redis as to which items are safe to evict first.
+  See [Expiration of cache items](#expiration-of-cache-items).
+- If that is set, review whether caches have very short TTL set on them. Note
+  that by default, page caches have no expiration and specifically do not
+  respect the "Browser and proxy cache maximum age" setting.
+- If a large amount of items are invalidated, use the cache tag report to review
+  that in more depth.
+- For render cache items with many variations, avoid high frequency cache
+  contexts such as user or url. Various blocks such as local tasks, actions and
+  help can be restricted to authenticated user to avoid rendering them for
+  visitors.
+- For cache tag invalidations, focus on those with a high impact with many
+  invalidations and usages. Cache tags with no usages can safely be ignored.
+- To avoid using `node_list` and similar list cache tags, use more specific
+  bundle cache tags such as `node_list:<bundle>` in code or [in views](https://www.drupal.org/project/views_custom_cache_tag).
+- Reduce invalidations for example by avoiding unnecessary entity saves, only
+  save entities when there are changes in synchronizations, imports and similar
+  cases.
+- To review where a certain cache tag is used, use
+  `drush redis:tag-usage node_list --bins=page`, start with the page bin to
+  easily identify affecte pages, narrow down with other bins if necessary.
+- To identify where and why certain invalidations happen, use for example
+  [the past module](http://drupal.org/project/past) or similar custom code to
+  log invalidations with a backtrace.
+
 ## Redis clients
 
 This package provides support for three different Redis clients.

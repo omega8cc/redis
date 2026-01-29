@@ -16,9 +16,10 @@ class Relay implements ClientInterface {
    */
   public function scan(string $match, int $count = 1000) {
     $it = NULL;
-    while ($keys = $this->redis->scan($it, $match, $count)) {
+    do {
+      $keys = $this->redis->scan($it, $match, $count);
       yield from $keys;
-    }
+    } while ($it != 0);
   }
 
   /**

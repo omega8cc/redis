@@ -114,6 +114,13 @@ class Predis implements ClientInterface {
   /**
    * {@inheritdoc}
    */
+  public function rawCommand(... $args) {
+    return $this->activeClient()->executeRaw($args);
+  }
+
+  /**
+   * {@inheritdoc}
+   */
   public function __call(string $name, array $arguments) {
     $result = $this->activeClient()->$name(...$arguments);
     if ($result instanceof Status) {

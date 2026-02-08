@@ -121,21 +121,70 @@ class RedisBackend implements CacheBackendInterface {
    * {@inheritdoc}
    */
   public function setMultiple(array $items) {
-    // Register cache tags of each item for preloading.
-    if (method_exists($this->checksumProvider, 'registerCacheTagsForPreload')) {
-      $tags_for_preload = [];
-      foreach ($items as $item) {
-        if (!empty($item['tags'])) {
-          assert(Inspector::assertAllStrings($item['tags']), 'Cache Tags must be strings.');
-          $tags_for_preload[] = $item['tags'];
-        }
-      }
-      $this->checksumProvider->registerCacheTagsForPreload(array_merge(...$tags_for_preload));
+    $tags = [];
+    // Always add a cache tag for the current bin, so that we can use that for
+    // invalidateAll().
+    if (Settings::get('redis_invalidate_all_as_delete', FALSE) === FALSE) {
+      $tags[] = [$this->getTagForBin()];
     }
 
+    // Prepare items and delete already expired ones outside the pipeline,
+    // preload all cache tags outside the pipeline.
     foreach ($items as $cid => $item) {
-      $this->set($cid, $item['data'], isset($item['expire']) ? $item['expire'] : CacheBackendInterface::CACHE_PERMANENT, isset($item['tags']) ? $item['tags'] : []);
+      $item += [
+        'expire' => CacheBackendInterface::CACHE_PERMANENT,
+        'tags' => [],
+      ];
+
+      $item['ttl'] = $this->getExpiration($item['expire']);
+
+      // If the item is already expired, delete it.
+      if (isset($item['ttl']) && $item['ttl'] <= 0) {
+        $key = $this->getKey($cid);
+        $this->delete($key);
+        unset($items[$cid]);
+      }
+
+      if (!empty($item['tags'])) {
+        assert(Inspector::assertAllStrings($item['tags']), 'Cache Tags must be strings.');
+        $tags[] = $item['tags'];
+      }
+
+      $items[$cid] = $item;
     }
+
+    if ($tags) {
+      // Preload all cache tags outside the pipeline.
+      $this->checksumProvider->getCurrentChecksum(array_merge(...$tags));
+    }
+
+    // It is not possible to have multiple pipelines, prepare the hash entries
+    // to avoid that anything during serialization may trigger another pipeline
+    // due to a fiber, or nested cache read or write while this is within a
+    // pipeline.
+    $ttls = [];
+    $entries = [];
+    foreach ($items as $cid => $item) {
+      $key = $this->getKey($cid);
+      $ttls[$key] = $this->getExpiration($item['expire']);
+
+      // Build the cache item and save it as a hash array.
+      $entries[$key] = $this->createEntryHash($cid, $item['data'], $item['expire'], $item['tags']);
+    }
+
+    if (!$entries) {
+      return;
+    }
+
+    // Write the hash sets with the respective expiration.
+    $this->client->pipeline();
+    foreach ($entries as $key => $entry) {
+      $this->client->hMset($key, $entry);
+      if (isset($ttls[$key])) {
+        $this->client->expire($key, $ttls[$key]);
+      }
+    }
+    $this->client->exec();
   }
 
   /**
@@ -232,22 +281,13 @@ class RedisBackend implements CacheBackendInterface {
       return;
     }
 
-    $ttl = $this->getExpiration($expire);
-
-    $key = $this->getKey($cid);
-
-    // If the item is already expired, delete it.
-    if ($ttl <= 0) {
-      $this->delete($key);
-    }
-
-    // Build the cache item and save it as a hash array.
-    $entry = $this->createEntryHash($cid, $data, $expire, $tags);
-
-    $this->client->pipeline();
-    $this->client->hMset($key, $entry);
-    $this->client->expire($key, $ttl);
-    $this->client->exec();
+    $this->setMultiple([
+      $cid => [
+        'data' => $data,
+        'expire' => $expire,
+        'tags' => $tags,
+      ],
+    ]);
   }
 
   /**
@@ -449,7 +489,6 @@ class RedisBackend implements CacheBackendInterface {
     if (Settings::get('redis_invalidate_all_as_delete', FALSE) === FALSE) {
       $tags[] = $this->getTagForBin();
     }
-    assert(Inspector::assertAllStrings($tags), 'Cache Tags must be strings.');
     $hash = [
       'cid' => $cid,
       'created' => round(microtime(TRUE), 3),
@@ -459,7 +498,7 @@ class RedisBackend implements CacheBackendInterface {
       'checksum' => $this->checksumProvider->getCurrentChecksum($tags),
     ];
 
-    // Let Redis handle the data types itself.
+    // Encode anything that is not a strong.
     if (!is_string($data)) {
       $hash['data'] = $this->serializer->encode($data);
       $hash['serialized'] = 1;

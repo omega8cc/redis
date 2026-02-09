@@ -124,7 +124,7 @@ class RedisBackend implements CacheBackendInterface {
     $tags = [];
     // Always add a cache tag for the current bin, so that we can use that for
     // invalidateAll().
-    if (Settings::get('redis_invalidate_all_as_delete', FALSE) === FALSE) {
+    if (Settings::get('redis_invalidate_all_as_delete', TRUE) === FALSE) {
       $tags[] = [$this->getTagForBin()];
     }
 
@@ -345,7 +345,7 @@ class RedisBackend implements CacheBackendInterface {
    *   is already expired.
    */
   protected function getExpiration($expire) {
-    $redis_ttl_offset = Settings::get('redis_ttl_offset', NULL);
+    $redis_ttl_offset = Settings::get('redis_ttl_offset', 3600);
     if ($expire == Cache::PERMANENT || $redis_ttl_offset === NULL) {
       return $this->permTtl;
     }
@@ -440,7 +440,7 @@ class RedisBackend implements CacheBackendInterface {
         $cache->valid = FALSE;
       }
 
-      if (Settings::get('redis_invalidate_all_as_delete', FALSE) === FALSE) {
+      if (Settings::get('redis_invalidate_all_as_delete', TRUE) === FALSE) {
         // Remove the bin cache tag to not expose that, otherwise it is reused
         // by the fast backend in the FastChained implementation.
         $cache->tags = array_diff($cache->tags, [$this->getTagForBin()]);
@@ -486,7 +486,7 @@ class RedisBackend implements CacheBackendInterface {
   protected function createEntryHash($cid, $data, $expire, array $tags) {
     // Always add a cache tag for the current bin, so that we can use that for
     // invalidateAll().
-    if (Settings::get('redis_invalidate_all_as_delete', FALSE) === FALSE) {
+    if (Settings::get('redis_invalidate_all_as_delete', TRUE) === FALSE) {
       $tags[] = $this->getTagForBin();
     }
     $hash = [
@@ -508,13 +508,14 @@ class RedisBackend implements CacheBackendInterface {
       $hash['serialized'] = 0;
     }
 
-    if (Settings::get('redis_compress_length', 0) && strlen($hash['data']) > Settings::get('redis_compress_length', 0)) {
+    if (Settings::get('redis_compress_length', 1000) && strlen($hash['data']) > Settings::get('redis_compress_length', 1000)) {
       $hash['data'] = @gzcompress($hash['data'], Settings::get('redis_compress_level', 1));
       $hash['gz'] = TRUE;
     }
 
     return $hash;
   }
+
   /**
    * {@inheritdoc}
    */
@@ -534,7 +535,7 @@ class RedisBackend implements CacheBackendInterface {
    */
   public function invalidateAll() {
     @trigger_error("CacheBackendInterface::invalidateAll() is deprecated in drupal:11.2.0 and is removed from drupal:12.0.0. Use CacheBackendInterface::deleteAll() or cache tag invalidation instead. See https://www.drupal.org/node/3500622", E_USER_DEPRECATED);
-    if (Settings::get('redis_invalidate_all_as_delete', FALSE) === FALSE) {
+    if (Settings::get('redis_invalidate_all_as_delete', TRUE) === FALSE) {
       // To invalidate the whole bin, we invalidate a special tag for this bin.
       $this->checksumProvider->invalidateTags([$this->getTagForBin()]);
     }

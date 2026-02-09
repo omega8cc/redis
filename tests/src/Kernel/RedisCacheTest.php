@@ -7,6 +7,7 @@ use Drupal\Core\Cache\Cache;
 use Drupal\Core\DependencyInjection\ContainerBuilder;
 use Drupal\KernelTests\Core\Cache\GenericCacheBackendUnitTestBase;
 use Drupal\redis\Cache\RedisBackend;
+use PHPUnit\Framework\Attributes\IgnoreDeprecations;
 use Symfony\Component\DependencyInjection\Reference;
 use Drupal\Tests\redis\Traits\RedisTestInterfaceTrait;
 
@@ -56,6 +57,17 @@ class RedisCacheTest extends GenericCacheBackendUnitTestBase {
    *
    * @group legacy
    */
+  #[IgnoreDeprecations]
+  public function testInvalidateAll(): void {
+    $this->setSetting('redis_invalidate_all_as_delete', FALSE);
+    parent::testInvalidateAll();
+  }
+
+  /**
+   * Tests Drupal\Core\Cache\CacheBackendInterface::invalidateAll().
+   *
+   * @group legacy
+   */
   public function testInvalidateAllOptimized(): void {
     $this->setSetting('redis_invalidate_all_as_delete', TRUE);
     $backend_a = $this->getCacheBackend();
@@ -89,7 +101,7 @@ class RedisCacheTest extends GenericCacheBackendUnitTestBase {
     $backend->set('test2', 2, \Drupal::time()->getRequestTime() + 1);
 
     // After waiting 2 seconds, the temporary item has expired, for BC, the
-    // Redis TTL does not reflect the expiration, so the item can still be found
+    // Redis TTL is set with a default offset, so the item can still be found
     // with allow invalid.
     $this->wait(2);
     $this->assertNotEmpty($backend->get('test1'), 'First key is valid.');

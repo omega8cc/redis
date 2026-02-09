@@ -326,19 +326,14 @@ need to be more permanently.
 
 See [Eviction policy](#eviction-policy) for more information.
 
-By default, the default TTL will always be used over the expiration set for the
-item. The specific expiration is instead stored and verified when reading
-the cache item.
+A specific expiration is always stored on the cache item and respected exactly.
 
-This is done to respect the expectation that expired cache items can still be
-returned when explicitly requested.
+Additionally, a TTL is set on the cache item with an offset of, by
+default, 3600s. This is done to respect the expectation that expired cache items
+can still be returned when explicitly requested. Having an actual TTL with an
+offset set allows Redis to evict those keys within a reasonable timeframe.
 
-It is possible to set a TTL offset as a compromise between supporting the
-ability to return expired items for a certain amount of time but also guide
-Redis to clear item items that have been expired.
-
-Using this setting, Redis will get the real TTL for a key and
-might evict keys by TTL according to its configuration.
+The specific offset can be customized:
 
     // Expired items can still be explicitly requested for up to
     // one hour.
@@ -348,10 +343,11 @@ might evict keys by TTL according to its configuration.
     // to fetch expired items. This is not recommended.
     $settings['redis_ttl_offset'] = 0;
 
-Note: This behavior is off by default for BC, a default offset might be set in a
-future release.
+    // Disable this feature and always use the permanent TTL (previous default
+    // behavior in 8.x-1.x).
+    $settings['redis_ttl_offset'] = NULL;
 
-The default TTL can be customized for specific bins.
+The default "permanent" TTL can be customized for specific bins.
 
     // Set max TTL for cached pages to 3 days.
     $settings['redis_perm_ttl_page'] = '3 days';
@@ -369,7 +365,7 @@ Setting a lower TTL may allow Redis to free up old cache entries. Note however
 that Drupal will by default use most cache entries indefinitely and setting TTL
 too low may negatively affect performance and should be tested carefully. It is
 recommended to only consider this for large cache bins such as page, dynamic_page_cache and render.
-And instead rely on setting redis_ttl_offset and relying on an appropriate
+And instead rely on adjusting redis_ttl_offset and relying on an appropriate
 [eviction policy](#eviction-policy). Using volatile-lfu or similar will likely
 result in Redis making better informed decisions on which items to remove than
 a very short TTL.
@@ -382,10 +378,11 @@ with the expected behavior of cache backends or have other tradeoffs.
 Treat invalidateAll() the same as deleteAll() to avoid two different checks for
 each bin.
 
-    $settings['redis_invalidate_all_as_delete'] = TRUE;
+    $settings['redis_invalidate_all_as_delete'] = FALSE;
 
 Core has deprecated invalidateAll() in
-https://www.drupal.org/project/drupal/issues/3498947. This setting will be
+https://www.drupal.org/project/drupal/issues/3498947. As of Redis 2.0.0, this
+is now enabled by default. This setting will be
 removed in the future when Drupal 12.0 is required.
 
 ### Using igbinary serialization

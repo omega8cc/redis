@@ -33,16 +33,19 @@ if (!InstallerKernel::installationAttempted() && extension_loaded('redis')) {
   // $settings['cache']['bins']['bootstrap'] = 'cache.backend.redis';
 
   // Use compression for cache entries longer than the specified limit.
-  $settings['redis_compress_length'] = 100;
+  // This is the default setting.
+  // $settings['redis_compress_length'] = 1000;
 
   // Customize the prefix, a reliable but long fallback is used if not defined.
   // $settings['cache_prefix'] = 'prefix';
 
   // Respect specific TTL with an offset see README.md for more information.
-  $settings['redis_ttl_offset'] = 3600;
+  // This is the default setting.
+  // $settings['redis_ttl_offset'] = 3600;
 
   // Additional optimizations, see README.md
-  $settings['redis_invalidate_all_as_delete'] = TRUE;
+  // This is the default setting.
+  // $settings['redis_invalidate_all_as_delete'] = TRUE;
 
   // Allow the services to work before the Redis module itself is enabled.
   $settings['container_yamls'][] = 'modules/contrib/redis/redis.services.yml';

@@ -370,6 +370,25 @@ And instead rely on adjusting redis_ttl_offset and relying on an appropriate
 result in Redis making better informed decisions on which items to remove than
 a very short TTL.
 
+### Permanent bins
+
+For bins with a fixed, small amount of non-expiring items, it is possible
+to skip a TTL and treat them as permanent entries as well. This is done by
+default for bins that are considered permanent. It is possible to either
+change these bins or set any bin TTL explicitly to -1 to enable this behavior.
+
+This must only be enabled for bins that are guaranteed to fit within the
+configured memory.
+
+    // Disable TTL for default bin and make items non-volatile.
+    $settings['redis_perm_ttl_default'] = -1;
+
+    // Default permanent bins.
+    $settings['redis_permanent_bins'] = ['container', 'bootstrap', 'config', 'discovery'];
+
+Non-volatile items will never be evicted when using a volatile-* eviction
+policy, see [Eviction policy](#eviction-policy) for more information.
+
 ### Cache optimizations
 
 These settings allow to further optimize caching but are not be fully compatible

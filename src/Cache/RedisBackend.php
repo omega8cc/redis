@@ -69,18 +69,29 @@ class RedisBackend implements CacheBackendInterface {
   public function __construct(protected string $bin, protected ClientInterface $client, protected CacheTagsChecksumInterface $checksumProvider, protected SerializationInterface $serializer) {
     $this->setPermTtl();
 
-    // Exclude bins that should not be kept in memory
-    $this->client->addIgnorePattern($this->getKey('*'));
+    // Exclude bins that should not be kept in memory.
+    if (!$this->isPermanentBin()) {
+      $this->client->addIgnorePattern($this->getKey('*'));
+    }
   }
 
   /**
-   * Returns whether this cache bin should be kept in memory.
+   * Returns whether this bin is small and should be considered permanent.
+   *
+   * Values in this bin by default do not get a TTL and will not be evicted
+   * when using a volatile eviction policy.
+   *
+   * It is critical that these bins are small and guaranteed to fit into
+   * the available memory.
+   *
+   * This used to be relay specific setting, and is also used to keep those
+   * in memory.
    *
    * @return bool
-   *   TRUE if the Relay memory cache should be used.
+   *   TRUE if this is a persistent bin.
    */
-  protected function keepBinInMemory(): bool {
-    $in_memory_bins = Settings::get('redis_relay_memory_bins', ['container', 'bootstrap', 'config', 'discovery']);
+  protected function isPermanentBin(): bool {
+    $in_memory_bins = Settings::get('redis_permanent_bins', Settings::get('redis_relay_memory_bins', ['container', 'bootstrap', 'config', 'discovery']));
     return in_array($this->bin, $in_memory_bins);
   }
 
@@ -166,7 +177,7 @@ class RedisBackend implements CacheBackendInterface {
     $entries = [];
     foreach ($items as $cid => $item) {
       $key = $this->getKey($cid);
-      $ttls[$key] = $this->getExpiration($item['expire']);
+      $ttls[$key] = $item['ttl'];
 
       // Build the cache item and save it as a hash array.
       $entries[$key] = $this->createEntryHash($cid, $item['data'], $item['expire'], $item['tags']);
@@ -338,21 +349,22 @@ class RedisBackend implements CacheBackendInterface {
    * @param int $expire
    *   The expiration time provided for the cache set.
    *
-   * @return int
+   * @return int|null
    *   The default TTL if expire is PERMANENT or higher than the default.
    *   Otherwise, the adjusted lifetime of the cache if setting
    *   redis_ttl_offset is set >= 0. May return negative values if the item
-   *   is already expired.
+   *   is already expired. May return NULL if the item should not have expire
+   *   at all, typically because this is a permanent bin.
    */
-  protected function getExpiration($expire) {
+  protected function getExpiration($expire): int|null {
     $redis_ttl_offset = Settings::get('redis_ttl_offset', 3600);
     if ($expire == Cache::PERMANENT || $redis_ttl_offset === NULL) {
-      return $this->permTtl;
+      return $this->permTtl === Cache::PERMANENT ? NULL : $this->permTtl;
     }
 
     /** @phpstan-ignore-next-line */
     $expire_ttl = $expire - \Drupal::time()->getRequestTime();
-    if ($expire_ttl > $this->permTtl) {
+    if ($this->permTtl != self::CACHE_PERMANENT && $expire_ttl > $this->permTtl) {
       return $this->permTtl;
     }
 
@@ -369,7 +381,7 @@ class RedisBackend implements CacheBackendInterface {
   /**
    * Set the permanent TTL.
    */
-  public function setPermTtl($ttl = NULL) {
+  public function setPermTtl(?int $ttl = NULL) {
     if (isset($ttl)) {
       $this->permTtl = $ttl;
     }
@@ -379,9 +391,12 @@ class RedisBackend implements CacheBackendInterface {
       if ($ttl === NULL) {
         $ttl = Settings::get('redis.settings', [])['perm_ttl_' . $this->bin] ?? NULL;
       }
+      if ($ttl === NULL && $this->isPermanentBin()) {
+        $ttl = CacheBackendInterface::CACHE_PERMANENT;
+      }
       if ($ttl) {
         if ($ttl === (int) $ttl) {
-          $this->permTtl = $ttl;
+          $this->permTtl = (int) $ttl;
         }
         else {
           if ($iv = DateInterval::createFromDateString($ttl)) {
@@ -449,7 +464,7 @@ class RedisBackend implements CacheBackendInterface {
 
     // Ensure the entry does not predate the last delete all time.
     $last_delete_timestamp = $this->getLastDeleteAll();
-    if ($last_delete_timestamp && ((float)$values['created']) < $last_delete_timestamp) {
+    if ($last_delete_timestamp && ((float) $values['created']) < $last_delete_timestamp) {
       return FALSE;
     }
 
@@ -550,11 +565,11 @@ class RedisBackend implements CacheBackendInterface {
    * {@inheritdoc}
    */
   public function garbageCollection() {
-    // @todo Do we need to do anything here?
+    // Garbage collection is handled by Redis.
   }
 
   /**
-   *  Returns the last delete all timestamp.
+   * Returns the last delete all timestamp.
    *
    * @return float
    *   The last delete timestamp as a timestamp with a millisecond precision.

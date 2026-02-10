@@ -9,7 +9,9 @@ use Drupal\Core\DependencyInjection\ContainerBuilder;
 use Drupal\KernelTests\Core\Cache\GenericCacheBackendUnitTestBase;
 use Drupal\redis\Cache\RedisBackend;
 use Drupal\redis\RedisPrefixTrait;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\IgnoreDeprecations;
+use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 use Symfony\Component\DependencyInjection\Reference;
 use Drupal\Tests\redis\Traits\RedisTestInterfaceTrait;
 
@@ -18,6 +20,8 @@ use Drupal\Tests\redis\Traits\RedisTestInterfaceTrait;
  *
  * @group redis
  */
+#[Group('redis')]
+#[RunTestsInSeparateProcesses]
 class RedisCacheTest extends GenericCacheBackendUnitTestBase {
 
   use RedisTestInterfaceTrait;

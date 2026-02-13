@@ -37,7 +37,7 @@ class ClientFactory {
    *
    * @var \Drupal\redis\ClientInterface|null
    */
-  protected ?ClientInterface $client = NULL;
+  protected static ?ClientInterface $client = NULL;
 
   /**
    * @var \Drupal\redis\Client\RedisClientFactoryInterface[]
@@ -51,7 +51,7 @@ class ClientFactory {
    *   True if there is an instantiated client, false if not.
    */
   public function hasClient(): bool {
-    return $this->client instanceof ClientInterface;
+    return static::$client instanceof ClientInterface;
   }
 
   /**
@@ -60,7 +60,7 @@ class ClientFactory {
    * @return string|null
    */
   public function getClientName(): ?string {
-    return $this->client?->getName();
+    return static::$client?->getName();
   }
 
   /**
@@ -77,7 +77,7 @@ class ClientFactory {
    * Get client singleton.
    */
   public function getClient(): ClientInterface {
-    if (!isset($this->client)) {
+    if (!isset(static::$client)) {
       $settings = Settings::get('redis.connection', []);
       $settings += [
         'host' => self::REDIS_DEFAULT_HOST,
@@ -110,20 +110,20 @@ class ClientFactory {
         if (!isset($this->factories[$settings['interface']])) {
           throw new \InvalidArgumentException('Invalid interface ' . $settings['interface']);
         }
-        $this->client = $this->factories[$settings['interface']]->getClient($settings);
+        static::$client = $this->factories[$settings['interface']]->getClient($settings);
       }
       else {
         // Fall back to returning the first-available client based on priority.
         foreach ($this->factories as $client_factory) {
           if ($client_factory->isAvailable()) {
-            $this->client = $client_factory->getClient($settings);
+            static::$client = $client_factory->getClient($settings);
             break;
           }
         }
       }
     }
 
-    return $this->client;
+    return static::$client;
   }
 
 }

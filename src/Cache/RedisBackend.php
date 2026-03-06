@@ -210,7 +210,7 @@ class RedisBackend implements CacheBackendInterface {
    */
   public function deleteMultiple(array $cids) {
     /** @phpstan-ignore-next-line */
-    $database = \Drupal::hasContainer() ? \Drupal::database() : NULL;
+    $database = \Drupal::hasContainer() && \Drupal::hasService('database') ? \Drupal::database() : NULL;
     $in_transaction = $database?->inTransaction();
     if ($in_transaction) {
       if (empty($this->delayedDeletions)) {

@@ -56,11 +56,6 @@ variables:
   # Concurrency can not be enabled as environment variables are not passed
   # through
   _PHPUNIT_CONCURRENT: 0
-  # Relay can currently not be installed with docker-php-extension-installer
-  # on ubuntu.
-  PHP_IMAGE_VARIANT: 'ubuntu-apache'
-#  PHP_IMAGE_TAG: dev
-  _TARGET_PHP: 8.4
 
 .composer-base:
   before_script:

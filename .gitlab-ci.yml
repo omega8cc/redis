@@ -15,21 +15,34 @@ include:
   - echo -e "\e[0Ksection_start:`date +%s`:my_first_section[collapsed=true]\r\e[0KInstall PHP Extensions"
   - >
     if [ "$REDIS_INTERFACE" == "PhpRedis" ]; then
-      apt-get update
-      apt-get install -y --no-install-recommends $PHPIZE_DEPS
-      pecl install redis && docker-php-ext-enable redis
+      docker-php-ext-enable msgpack redis
     fi
   - >
     if [ "$REDIS_INTERFACE" == "Relay" ]; then
-      apt-get update
-      apt-get install -y --no-install-recommends $PHPIZE_DEPS
-      if [ ! -f /usr/src/php.tar.xz ]; then
-        PHP_URL="https://www.php.net/distributions/php-`php -r "echo phpversion();"`.tar.xz"
-        curl -fsSL -o /usr/src/php.tar.xz "$PHP_URL"
-      fi
-      curl -sSLf -o /usr/local/bin/install-php-extensions https://github.com/mlocati/docker-php-extension-installer/releases/latest/download/install-php-extensions
-      chmod +x /usr/local/bin/install-php-extensions
-      PHPIZE_DEPS="autoconf dpkg-dev dpkg file g++ gcc libc-dev make pkgconf re2c" PHP_INI_DIR="/usr/local/etc/php" install-php-extensions relay
+      docker-php-ext-enable msgpack
+      RELAY_VERSION="$(curl -fsSL https://builds.r2.relay.so/meta/latest)"
+      RELAY_PHP="$(php-config --version | cut -d. -f1,2)"
+      RELAY_INI_DIR="$(php-config --ini-dir)"
+      RELAY_EXT_DIR="$(php-config --extension-dir)"
+      RELAY_DISTRO="$(grep -E '^ID=' /etc/os-release | cut -d = -f 2)"
+      RELAY_SSL_SUFFIX="$(php -r 'echo OPENSSL_VERSION_NUMBER < 0x30000000 ? "" : "+libssl3";')"
+      case "$(arch)" in
+        arm64) RELAY_ARCH="aarch64" ;;
+        amd64|x86_64) RELAY_ARCH="x86-64" ;;
+        *) RELAY_ARCH="$(arch)" ;;
+      esac
+      RELAY_ARTIFACT=""
+      for RELAY_CANDIDATE_DISTRO in "$RELAY_DISTRO" debian; do
+        RELAY_CANDIDATE="https://builds.r2.relay.so/${RELAY_VERSION}/relay-${RELAY_VERSION}-php${RELAY_PHP}-${RELAY_CANDIDATE_DISTRO}-${RELAY_ARCH}${RELAY_SSL_SUFFIX}.tar.gz";
+        if curl -fsSIL -o /dev/null "$RELAY_CANDIDATE"; then RELAY_ARTIFACT="$RELAY_CANDIDATE"; break; fi;
+      done
+      test -n "$RELAY_ARTIFACT"
+      RELAY_TMP_DIR="$(mktemp -d)"
+      echo "Installing Relay ${RELAY_VERSION} from ${RELAY_ARTIFACT}"
+      curl -fsSL "$RELAY_ARTIFACT" | tar -xz --strip-components=1 -C "$RELAY_TMP_DIR"
+      sed -i "s/00000000-0000-0000-0000-000000000000/$(cat /proc/sys/kernel/random/uuid)/" "$RELAY_TMP_DIR/relay-pkg.so"
+      cp "$RELAY_TMP_DIR/relay-pkg.so" "$RELAY_EXT_DIR/relay.so"
+      printf '%s\n' 'extension=relay' 'relay.maxmemory = 64M' 'relay.eviction_policy = lru' 'relay.environment = production' > "$RELAY_INI_DIR/relay.ini"
     fi
   - echo -e "\e[0Ksection_end:`date +%s`:my_first_section\r\e[0K"
 
@@ -43,9 +56,6 @@ variables:
   # Concurrency can not be enabled as environment variables are not passed
   # through
   _PHPUNIT_CONCURRENT: 0
-  # Relay can currently not be installed with docker-php-extension-installer
-  # on ubuntu.
-  PHP_IMAGE_VARIANT: 'apache'
 
 .composer-base:
   before_script:

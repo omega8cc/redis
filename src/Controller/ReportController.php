@@ -394,9 +394,13 @@ class ReportController extends ControllerBase {
     $normalized_info['used_memory_human'] = $info['used_memory_human'] ?? $info['Memory']['used_memory_human'];
 
     if (empty($info['maxmemory_policy'])) {
-      $memory_config = $this->redis->config('get', 'maxmemory*');
-      $normalized_info['maxmemory_policy'] = $memory_config['maxmemory-policy'];
-      $normalized_info['maxmemory'] = $memory_config['maxmemory'];
+      try {
+        // Hosted Redis instances may disallow CONFIG commands.
+        $memory_config = $this->redis->config('get', 'maxmemory*');
+      }
+      catch (\Exception) {}
+      $normalized_info['maxmemory_policy'] = $memory_config['maxmemory-policy'] ?? '';
+      $normalized_info['maxmemory'] = $memory_config['maxmemory'] ?? '';
     }
     else {
       $normalized_info['maxmemory_policy'] = $info['maxmemory_policy'];

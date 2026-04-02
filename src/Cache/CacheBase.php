@@ -193,7 +193,7 @@ abstract class CacheBase implements CacheBackendInterface {
    * {@inheritdoc}
    */
   public function deleteMultiple(array $cids) {
-    $in_transaction = \Drupal::hasContainer() && \Drupal::database()->inTransaction();
+    $in_transaction = \Drupal::hasContainer() && \Drupal::hasService('database') && \Drupal::database()->inTransaction();
     if ($in_transaction) {
       if (empty($this->delayedDeletions)) {
         if (method_exists(\Drupal::database(), 'transactionManager')) {

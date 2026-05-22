@@ -19,7 +19,7 @@ class RelayFactory implements RedisClientFactoryInterface {
   /**
    * {@inheritdoc}
    */
-  public function getClient(array $settings): ClientInterface {
+  public function getClient(#[\SensitiveParameter] array $settings): ClientInterface {
     $relay = new \Relay\Relay();
 
     $host = $settings['host'];
@@ -77,7 +77,7 @@ class RelayFactory implements RedisClientFactoryInterface {
    * @return mixed
    *   An array with ip & port of the Master instance or NULL.
    */
-  protected function askForMaster(\Relay\Relay $client, $settings) {
+  protected function askForMaster(\Relay\Relay $client, #[\SensitiveParameter] $settings) {
 
     assert(is_array($settings['host']));
 

@@ -27,7 +27,7 @@ interface RedisClientFactoryInterface {
    * @return \Drupal\redis\ClientInterface
    *   The client.
    */
-  public function getClient(array $settings): ClientInterface;
+  public function getClient(#[\SensitiveParameter] array $settings): ClientInterface;
 
   /**
    * Get underlying library name used.

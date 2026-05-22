@@ -17,7 +17,7 @@ class PredisFactory implements RedisClientFactoryInterface {
     return class_exists(Client::class);
   }
 
-  public function getClient(array $settings): ClientInterface {
+  public function getClient(#[\SensitiveParameter] array $settings): ClientInterface {
 
     foreach ($settings as $key => $value) {
       if (!isset($value)) {

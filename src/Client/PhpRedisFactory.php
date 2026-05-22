@@ -19,7 +19,7 @@ class PhpRedisFactory implements RedisClientFactoryInterface {
   /**
    * {@inheritdoc}
    */
-  public function getClient(array $settings): ClientInterface {
+  public function getClient(#[\SensitiveParameter] array $settings): ClientInterface {
     $redis = new \Redis();
 
     $host = $settings['host'];
@@ -77,7 +77,7 @@ class PhpRedisFactory implements RedisClientFactoryInterface {
    * @return mixed
    *   An array with ip & port of the Master instance or NULL.
    */
-  protected function askForMaster(\Redis $client, array $settings) {
+  protected function askForMaster(\Redis $client, #[\SensitiveParameter] array $settings) {
 
     assert(is_array($settings['host']));
 

@@ -222,7 +222,7 @@ final class RedisCommands extends DrushCommands {
         $item = $this->redis->hGetAll($key);
 
         if (!empty($item['expire']) && $item['expire'] != -1) {
-          if ($item['expire'] - $current_time) {
+          if ($item['expire'] - $current_time < 0) {
             $bin_statistics[$bin]['expired']++;
           }
         }
@@ -273,8 +273,14 @@ final class RedisCommands extends DrushCommands {
         }
       }
 
-      if ($i % 100 == 0) {
+      if ($i % 100 === 0) {
         $progress->advance(100);
+      }
+
+      if ($i % 1000 === 0) {
+        // Reset the cache tag checksum cache to prevent it from growing too
+        // large.
+        $this->cacheTagsChecksum->reset();
       }
     }
 

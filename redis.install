@@ -5,6 +5,8 @@
  * Redis install related functions.
  */
 
+use Drupal\Component\Utility\DeprecationHelper;
+use Drupal\Core\Extension\Requirement\RequirementSeverity;
 use Drupal\Core\Hook\Attribute\LegacyRequirementsHook;
 
 /**
@@ -27,14 +29,14 @@ function redis_requirements($phase) {
     $requirements['redis'] = [
       'title'       => "Redis",
       'value'       => t("Connected, using the <em>@name</em> client.", ['@name' => $factory->getClientName()]),
-      'severity'    => REQUIREMENT_OK,
+      'severity'    => DeprecationHelper::backwardsCompatibleCall(\Drupal::VERSION, '11.2.0', fn() => RequirementSeverity::OK, fn() => REQUIREMENT_OK),
     ];
   }
   else {
     $requirements['redis'] = [
       'title'       => "Redis",
       'value'       => t("Not connected."),
-      'severity'    => REQUIREMENT_WARNING,
+      'severity'    => DeprecationHelper::backwardsCompatibleCall(\Drupal::VERSION, '11.2.0', fn() => RequirementSeverity::Warning, fn() => REQUIREMENT_WARNING),
       'description' => t("No Redis client connected, this module is therefore not used. Ensure that Redis is configured correctly, or disable this module."),
     ];
   }

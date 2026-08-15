@@ -35,7 +35,7 @@ class RedisLockTest extends LockTest {
   /**
    * {@inheritdoc}
    */
-  public function register(ContainerBuilder $container) {
+  public function register(ContainerBuilder $container): void {
     self::setUpSettings();
     parent::register($container);
 

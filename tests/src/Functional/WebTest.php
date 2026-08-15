@@ -10,6 +10,7 @@ use Drupal\cron_queue_test\Plugin\QueueWorker\CronQueueTestException;
 use Drupal\Tests\BrowserTestBase;
 use Drupal\Tests\field_ui\Traits\FieldUiTestTrait;
 use Drupal\Tests\redis\Traits\RedisTestInterfaceTrait;
+use Drupal\views\Entity\View;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 
@@ -30,7 +31,7 @@ class WebTest extends BrowserTestBase {
    *
    * @var array
    */
-  protected static $modules = ['redis', 'block', 'cron_queue_test'];
+  protected static $modules = ['redis', 'block', 'redis_test', 'page_cache', 'dynamic_page_cache', 'views'];
 
   /**
    * {@inheritdoc}
@@ -146,8 +147,9 @@ class WebTest extends BrowserTestBase {
     $this->drupalLogin($admin_user);
 
     // Enable a few modules.
+    $edit["modules[dblog][enable]"] = TRUE;
     $edit["modules[node][enable]"] = TRUE;
-    $edit["modules[views][enable]"] = TRUE;
+    $edit["modules[views_ui][enable]"] = TRUE;
     $edit["modules[field_ui][enable]"] = TRUE;
     $edit["modules[text][enable]"] = TRUE;
     $this->drupalGet('admin/modules');
@@ -162,12 +164,16 @@ class WebTest extends BrowserTestBase {
     $assert->elementTextContains('css', '.messages--status', 'Field UI');
     $assert->elementTextContains('css', '.messages--status', 'Node');
     $assert->elementTextContains('css', '.messages--status', 'Text');
-    $assert->elementTextContains('css', '.messages--status', 'Views');
+    $assert->elementTextContains('css', '.messages--status', 'Database Logging');
     $assert->elementTextContains('css', '.messages--status', 'Field');
-    $assert->elementTextContains('css', '.messages--status', 'Filter');
+    $assert->elementTextContains('css', '.messages--status', 'Views UI');
     $assert->checkboxChecked('edit-modules-field-ui-enable');
 
     \Drupal::service(FieldTypePluginManagerInterface::class)->clearCachedDefinitions();
+
+    // Enable the optional promoted content view if it exists.
+    $this->drupalGet('/admin/structure/views');
+    $this->clickLink('Enable');
 
     // Create a node type with a field.
     $edit = [
@@ -210,16 +216,15 @@ class WebTest extends BrowserTestBase {
     $this->clickLink($update['title[0][value]']);
 
     // Manually add a queue item and process it, to test the queue factory.
-    // Get the queue to test the normal Exception.
-    $queue = \Drupal::queue(CronQueueTestException::PLUGIN_ID);
+    $queue = \Drupal::queue('redis_test_queue');
 
     // Enqueue an item for processing.
-    $queue->createItem([$this->randomMachineName() => $this->randomMachineName()]);
+    $expected = ['foo' => 'bar'];
+    $queue->createItem($expected);
 
-    // Run cron; the worker for this queue should throw an exception and handle
-    // it.
+    // Run cron to process the queue item.
     \Drupal::service('cron')->run();
-    $this->assertEquals(1, \Drupal::state()->get('cron_queue_test_exception'));
+    $this->assertEquals($expected, \Drupal::keyValue('redis_test')->get('data'));
 
     // Access the reports page.
     $this->drupalLogin($admin_user);
@@ -236,7 +241,7 @@ class WebTest extends BrowserTestBase {
 
     // Assert render cache entries.
     $this->assertSession()->pageTextMatches('/entity_view:block:.+: [0-9]*[1-9][0-9]* \(.+\)/');
-    $this->assertSession()->pageTextMatches('/view:frontpage:display:page_1: [0-9]*[1-9][0-9]* \(.+\)/');
+    $this->assertSession()->pageTextMatches('/view:(frontpage|promoted_content):display:page_1: [0-9]*[1-9][0-9]* \(.+\)/');
 
     // Assert a few cache tags for a non-zero invalidation count.
     $this->assertSession()->pageTextContains('Most invalidated cache tags');

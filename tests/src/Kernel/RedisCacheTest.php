@@ -2,8 +2,10 @@
 
 namespace Drupal\Tests\redis\Kernel;
 
+use Drupal\Component\Utility\DeprecationHelper;
 use Drupal\Component\Datetime\Time;
 use Drupal\Core\Cache\Cache;
+use Drupal\Core\Cache\CacheBackendInterface;
 use Drupal\Core\Cache\ChainedFastBackend;
 use Drupal\Core\DependencyInjection\ContainerBuilder;
 use Drupal\KernelTests\Core\Cache\GenericCacheBackendUnitTestBase;
@@ -34,7 +36,10 @@ class RedisCacheTest extends GenericCacheBackendUnitTestBase {
    */
   protected static $modules = ['system', 'redis'];
 
-  public function register(ContainerBuilder $container) {
+  /**
+   * {@inheritdoc}
+   */
+  public function register(ContainerBuilder $container): void {
     self::setUpSettings();
     parent::register($container);
     // Replace the default checksum service with the redis implementation.
@@ -54,7 +59,7 @@ class RedisCacheTest extends GenericCacheBackendUnitTestBase {
    * @return \Drupal\redis\Cache\RedisBackend
    *   A new PhpRedis cache backend.
    */
-  protected function createCacheBackend($bin) {
+  protected function createCacheBackend($bin): CacheBackendInterface {
     $cache = \Drupal::service('cache.backend.redis')->get($bin);
     return $cache;
   }
@@ -66,6 +71,9 @@ class RedisCacheTest extends GenericCacheBackendUnitTestBase {
    */
   #[IgnoreDeprecations]
   public function testInvalidateAll(): void {
+    if (version_compare(\Drupal::VERSION, '11.9.99', '>=')) {
+      $this->markTestSkipped('invalidateAll() is removed in Drupal 12.');
+    }
     // This test is copied from the parent, as we need to undo the default
     // optimization for it to work and D12 will remove it.
     $this->setSetting('redis_invalidate_all_as_delete', FALSE);
@@ -78,7 +86,8 @@ class RedisCacheTest extends GenericCacheBackendUnitTestBase {
     $backend_a->set('test2', 3, time() + 1000);
     $backend_b->set('test3', 4, Cache::PERMANENT);
 
-    $this->expectDeprecation('CacheBackendInterface::invalidateAll() is deprecated in drupal:11.2.0 and is removed from drupal:12.0.0. Use CacheBackendInterface::deleteAll() or cache tag invalidation instead. See https://www.drupal.org/node/3500622');
+    DeprecationHelper::backwardsCompatibleCall(\Drupal::VERSION, '11.4.0', fn() => $this->expectUserDeprecationMessage('CacheBackendInterface::invalidateAll() is deprecated in drupal:11.2.0 and is removed from drupal:12.0.0. Use CacheBackendInterface::deleteAll() or cache tag invalidation instead. See https://www.drupal.org/node/3500622'), fn() => $this->expectDeprecation('CacheBackendInterface::invalidateAll() is deprecated in drupal:11.2.0 and is removed from drupal:12.0.0. Use CacheBackendInterface::deleteAll() or cache tag invalidation instead. See https://www.drupal.org/node/3500622'));
+    // @phpstan-ignore-next-line.
     $backend_a->invalidateAll();
 
     $this->assertFalse($backend_a->get('test1'), 'First key has been invalidated.');
@@ -94,6 +103,10 @@ class RedisCacheTest extends GenericCacheBackendUnitTestBase {
    * @group legacy
    */
   public function testInvalidateAllOptimized(): void {
+    if (version_compare(\Drupal::VERSION, '11.9.99', '>=')) {
+      $this->markTestSkipped('invalidateAll() is removed in Drupal 12.');
+    }
+
     $this->setSetting('redis_invalidate_all_as_delete', TRUE);
     $backend_a = $this->getCacheBackend();
     $backend_b = $this->getCacheBackend('bootstrap');
@@ -103,6 +116,7 @@ class RedisCacheTest extends GenericCacheBackendUnitTestBase {
     $backend_a->set('test2', 3, time() + 1000);
     $backend_b->set('test3', 4, Cache::PERMANENT);
 
+    // @phpstan-ignore-next-line.
     $backend_a->invalidateAll();
 
     $this->assertFalse($backend_a->get('test1'), 'First key has been invalidated.');
@@ -164,7 +178,7 @@ class RedisCacheTest extends GenericCacheBackendUnitTestBase {
       'perm_ttl_legacy' => 900,
       // Not used, the new and documented key is preferred.
       'perm_ttl_seconds' => 1,
-   ]);
+    ]);
 
     $backend = $this->getCacheBackend();
     $this->assertEquals(RedisBackend::LIFETIME_PERM_DEFAULT, $backend->getPermTtl());

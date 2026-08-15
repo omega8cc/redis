@@ -2,6 +2,8 @@
 
 namespace Drupal\redis\Controller;
 
+use Drupal\Component\Utility\DeprecationHelper;
+use Drupal\Core\Extension\Requirement\RequirementSeverity;
 use Drupal\Component\Utility\Unicode;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Datetime\DateFormatterInterface;
@@ -278,7 +280,7 @@ class ReportController extends ControllerBase {
     }
 
     if (count($cache_tags) == 0) {
-      $requirements['cache_tag_totals']['severity'] = REQUIREMENT_WARNING;
+      $requirements['cache_tag_totals']['severity'] = DeprecationHelper::backwardsCompatibleCall(\Drupal::VERSION, '11.2.0', fn() => RequirementSeverity::Warning, fn() => REQUIREMENT_WARNING);
       $requirements['cache_tag_totals']['description'] = $this->t('No cache tags found, make sure that the redis cache tag checksum service is used. See example.services.yml on root of this module.');
       unset($requirements['cache_tags']);
     }
@@ -296,7 +298,7 @@ class ReportController extends ControllerBase {
       ];
 
       if (ini_get('relay.eviction_policy') != 'lru') {
-        $requirements['relay']['severity'] = REQUIREMENT_WARNING;
+        $requirements['relay']['severity'] = DeprecationHelper::backwardsCompatibleCall(\Drupal::VERSION, '11.2.0', fn() => RequirementSeverity::Warning, fn() => REQUIREMENT_WARNING);
         $requirements['relay']['description'] = $this->t('It is recommended to set the relay eviction plicy to lru');
       }
 
@@ -304,7 +306,7 @@ class ReportController extends ControllerBase {
 
     if ($cache_tags_max) {
       $requirements['max_cache_tags'] = [
-        'severity' => REQUIREMENT_WARNING,
+        'severity' => DeprecationHelper::backwardsCompatibleCall(\Drupal::VERSION, '11.2.0', fn() => RequirementSeverity::Warning, fn() => REQUIREMENT_WARNING),
         'title' => $this->t('Cache tags limit reached'),
         'value' => ['#markup' => $this->t('Cache tag count incomplete, only counted @count cache tags.', ['@count' => count($cache_tags)])],
       ];
@@ -353,13 +355,7 @@ class ReportController extends ControllerBase {
    *   A translated string representation of the size.
    */
   protected function formatSize($size) {
-    if (class_exists(ByteSizeMarkup::class)) {
-      return ByteSizeMarkup::create($size ?? 0);
-    }
-    else {
-      // @phpstan-ignore-next-line
-      return format_size($size);
-    }
+    return ByteSizeMarkup::create($size ?? 0);
   }
 
 }

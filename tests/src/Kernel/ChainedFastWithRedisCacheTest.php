@@ -3,6 +3,8 @@
 namespace Drupal\Tests\redis\Kernel;
 
 use Drupal\Component\Datetime\TimeInterface;
+use Drupal\Core\Cache\CacheBackendInterface;
+use Drupal\Core\Cache\CacheTagsChecksumInterface;
 use Drupal\Core\Cache\ChainedFastBackend;
 use Drupal\Core\Cache\PhpBackend;
 use PHPUnit\Framework\Attributes\Group;
@@ -23,9 +25,9 @@ class ChainedFastWithRedisCacheTest extends RedisCacheTest {
    * @return \Drupal\Core\Cache\ChainedFastBackend
    *   A new ChainedFastBackend object.
    */
-  protected function createCacheBackend($bin) {
+  protected function createCacheBackend($bin): CacheBackendInterface {
     $consistent_backend = \Drupal::service('cache.backend.redis')->get($bin);
-    $fast_backend = new PhpBackend($bin, \Drupal::service('cache_tags.invalidator.checksum'), \Drupal::service(TimeInterface::class));
+    $fast_backend = new PhpBackend($bin, \Drupal::service(CacheTagsChecksumInterface::class), \Drupal::service(TimeInterface::class));
     $backend = new ChainedFastBackend($consistent_backend, $fast_backend, $bin);
     // Explicitly register the cache bin as it can not work through the
     // cache bin list in the container.

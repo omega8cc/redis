@@ -53,6 +53,7 @@ variables:
   OPT_IN_TEST_PREVIOUS_MINOR: 1
   OPT_IN_TEST_PREVIOUS_MAJOR: 1
   OPT_IN_TEST_NEXT_MINOR: 1
+  OPT_IN_TEST_NEXT_MAJOR: 1
   # Concurrency can not be enabled as environment variables are not passed
   # through
   _PHPUNIT_CONCURRENT: 0
@@ -63,9 +64,16 @@ variables:
 
 phpstan:
   allow_failure: false
+
+# We are only interested in PHPStan on the current version.
 phpstan (previous major):
   rules:
-    # We are only interested in PHPStan on the current version.
+    - when: never
+phpstan (next major):
+  rules:
+    - when: never
+phpstan (next minor):
+  rules:
     - when: never
 
 # For now, use Predis by default as this avoids issues with packages.
@@ -96,6 +104,9 @@ phpunit (previous major):
   extends: .phpunit-base
 
 phpunit (next minor):
+  extends: .phpunit-base
+
+phpunit (next major):
   extends: .phpunit-base
 
 phpunit (valkey):

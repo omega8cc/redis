@@ -211,7 +211,7 @@ class Redis_Client
     /**
      * For unit test use only
      */
-    static public function reset(Redis_Client_Manager $manager = null)
+    static public function reset($manager = null)
     {
         self::$manager = $manager;
     }

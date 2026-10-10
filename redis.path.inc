@@ -73,7 +73,9 @@ function drupal_lookup_path($action, $path = '', $path_language = NULL) {
   }
   $cache = &$drupal_static_fast['cache'];
 
-  if (null === $cache) {
+  // Keyed on the whitelist, as core is: a reset that lands inside a lookup
+  // (a hook_admin_paths() clearing the path cache) leaves an array without it.
+  if (!isset($cache['whitelist'])) {
     $cache = array('whitelist' => variable_get('path_alias_whitelist'));
     if (null === $cache['whitelist']) {
       $cache['whitelist'] = drupal_path_alias_whitelist_rebuild();

@@ -63,7 +63,15 @@ function drupal_path_initialize() {
 function drupal_lookup_path($action, $path = '', $path_language = NULL) {
   global $language_url;
 
-  static $cache, $denyAdmin;
+  static $denyAdmin;
+  // In drupal_static() so that drupal_clear_path_cache(), called by
+  // path_save() and path_delete(), empties it within the request. A name of
+  // its own: drupal_cache_system_paths() seeds the 'drupal_lookup_path' one.
+  static $drupal_static_fast;
+  if (!isset($drupal_static_fast)) {
+    $drupal_static_fast['cache'] = &drupal_static('redis_path_lookup');
+  }
+  $cache = &$drupal_static_fast['cache'];
 
   if (null === $cache) {
     $cache = array('whitelist' => variable_get('path_alias_whitelist'));
@@ -608,5 +616,6 @@ function drupal_valid_path($path, $dynamic_allowed = FALSE) {
 function drupal_clear_path_cache($source = NULL) {
   // Clear the drupal_lookup_path() static cache.
   drupal_static_reset('drupal_lookup_path');
+  drupal_static_reset('redis_path_lookup');
   drupal_path_alias_whitelist_rebuild($source);
 }

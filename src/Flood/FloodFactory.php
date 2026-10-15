@@ -3,6 +3,7 @@
 namespace Drupal\redis\Flood;
 
 use Drupal\redis\ClientFactory;
+use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\RequestStack;
 
 /**
@@ -10,7 +11,7 @@ use Symfony\Component\HttpFoundation\RequestStack;
  */
 class FloodFactory {
 
-  public function __construct(protected ClientFactory $clientFactory, protected RequestStack $requestStack) {
+  public function __construct(protected ClientFactory $clientFactory, protected RequestStack $requestStack, protected ?ContainerInterface $container = NULL) {
   }
 
   /**
@@ -22,7 +23,7 @@ class FloodFactory {
   public function get() {
     if ($this->clientFactory->useFailover()) {
       // @phpstan-ignore-next-line
-      return \Drupal::service('flood.failover');
+      return ($this->container ?? \Drupal::getContainer())->get('flood.failover');
     }
     return new RedisFloodBackend($this->clientFactory, $this->requestStack);
   }

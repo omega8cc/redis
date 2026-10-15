@@ -3,6 +3,7 @@
 namespace Drupal\redis\Lock;
 
 use Drupal\redis\ClientFactory;
+use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
  * Lock backend singleton handling.
@@ -12,7 +13,7 @@ class LockFactory {
   /**
    * Creates a redis LockFactory.
    */
-  public function __construct(protected ClientFactory $clientFactory) {
+  public function __construct(protected ClientFactory $clientFactory, protected ?ContainerInterface $container = NULL) {
   }
 
   /**
@@ -27,7 +28,7 @@ class LockFactory {
   public function get($persistent = FALSE) {
     if ($this->clientFactory->useFailover()) {
       // @phpstan-ignore-next-line
-      return \Drupal::service($persistent ? 'lock.persistent.failover' : 'lock.failover');
+      return ($this->container ?? \Drupal::getContainer())->get($persistent ? 'lock.persistent.failover' : 'lock.failover');
     }
     return new RedisLock($this->clientFactory, $persistent);
   }

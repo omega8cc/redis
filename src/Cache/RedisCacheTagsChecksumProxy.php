@@ -6,6 +6,7 @@ use Drupal\Core\Cache\CacheTagsChecksumInterface;
 use Drupal\Core\Cache\CacheTagsChecksumPreloadInterface;
 use Drupal\Core\Cache\CacheTagsInvalidatorInterface;
 use Drupal\redis\ClientFactory;
+use Symfony\Component\DependencyInjection\ContainerInterface;
 
 // BC for Drupal 11.1 and earlier: RedisCacheTagsChecksum declares the alias.
 if (!interface_exists(CacheTagsChecksumPreloadInterface::class)) {
@@ -28,11 +29,17 @@ class RedisCacheTagsChecksumProxy implements CacheTagsChecksumInterface, CacheTa
 
   /**
    * Creates the proxy and selects the active service.
+   *
+   * @param \Drupal\redis\ClientFactory $factory
+   *   The client factory.
+   * @param \Symfony\Component\DependencyInjection\ContainerInterface|null $container
+   *   The container the failover service is taken from. The proxy is built
+   *   while the container is compiled, before \Drupal has one.
    */
-  public function __construct(ClientFactory $factory) {
+  public function __construct(ClientFactory $factory, ?ContainerInterface $container = NULL) {
     if ($factory->useFailover()) {
       // @phpstan-ignore-next-line
-      $this->activeService = \Drupal::service('cache_tags.invalidator.checksum.failover');
+      $this->activeService = ($container ?? \Drupal::getContainer())->get('cache_tags.invalidator.checksum.failover');
     }
     else {
       $this->activeService = new RedisCacheTagsChecksum($factory);

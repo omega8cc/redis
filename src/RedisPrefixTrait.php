@@ -44,10 +44,13 @@ trait RedisPrefixTrait {
    * Every copy of a site under one name, its www. twin included, has the same
    * name-based prefix: a Migrate builds its copy beside the live site, and the
    * two may run cores whose cached objects do not load in each other. Each
-   * copy has a database of its own, so its connection names its namespace.
-   * Empty while no database is known (an install before its database exists),
-   * which keeps the name-based prefix. The leading md5 of the name stays, so a
-   * purge by name still reaches every copy.
+   * copy has a database of its own, so its server and database name its
+   * namespace. The port is left out: it is only the way to reach the server,
+   * and the command line may lack it where the web passes the default, which
+   * would split one copy into two namespaces. Empty while no database is known
+   * (an install before its database exists), which keeps the name-based
+   * prefix. The leading md5 of the name stays, so a purge by name still
+   * reaches every copy.
    *
    * @return string
    */
@@ -58,8 +61,7 @@ trait RedisPrefixTrait {
     }
     $db = $info['default'];
     $prefix = (isset($db['prefix']) && is_string($db['prefix'])) ? $db['prefix'] : '';
-    $key = strtolower(trim((string) ($db['host'] ?? ''))) . ':' . trim((string) ($db['port'] ?? ''))
-      . '/' . $db['database'] . '/' . $prefix;
+    $key = strtolower(trim((string) ($db['host'] ?? ''))) . '/' . $db['database'] . '/' . $prefix;
     return substr(md5($key), 0, 8) . '_';
   }
 

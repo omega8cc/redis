@@ -5,6 +5,7 @@ namespace Drupal\redis\Cache;
 use Drupal\Component\Serialization\SerializationInterface;
 use Drupal\Core\Cache\CacheFactoryInterface;
 use Drupal\Core\Cache\CacheTagsChecksumInterface;
+use Drupal\Core\Cache\NullBackend;
 use Drupal\Core\Site\Settings;
 use Drupal\redis\ClientFactory;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -30,7 +31,8 @@ class CacheBackendFactory implements CacheFactoryInterface {
    *
    * The container, when given, is where the failover cache service is taken
    * from: bins are built while the container is compiled, before \Drupal
-   * has one. The bootstrap container gives none.
+   * has one. The bootstrap container gives none, and has no failover cache
+   * service either.
    */
   public function __construct(protected ClientFactory $clientFactory, protected CacheTagsChecksumInterface $checksumProvider, protected SerializationInterface $serializer, protected ?ContainerInterface $container = NULL) {
   }
@@ -42,11 +44,17 @@ class CacheBackendFactory implements CacheFactoryInterface {
     if (!isset($this->bins[$bin])) {
       if ($this->clientFactory->useFailover()) {
         // Redis is down: use the failover cache backend for this request.
-        // There is no failover for the bootstrap container, which has no
-        // container to look the service up in.
-        $failover_service = Settings::get('redis.failover.cache_service', 'cache.backend.database');
-        // @phpstan-ignore-next-line
-        $this->bins[$bin] = ($this->container ?? \Drupal::getContainer())->get($failover_service)->get($bin);
+        $container = $this->container ?? (\Drupal::hasContainer() ? \Drupal::getContainer() : NULL);
+        if (isset($container)) {
+          $failover_service = Settings::get('redis.failover.cache_service', 'cache.backend.database');
+          $this->bins[$bin] = $container->get($failover_service)->get($bin);
+        }
+        else {
+          // The bootstrap container, whose bin is the container cache, has
+          // no services to fail over to: the request compiles the container
+          // instead of reading it from a cache.
+          $this->bins[$bin] = new NullBackend($bin);
+        }
       }
       else {
         $this->bins[$bin] = new RedisBackend($bin, $this->clientFactory->getClient(), $this->checksumProvider, $this->serializer);

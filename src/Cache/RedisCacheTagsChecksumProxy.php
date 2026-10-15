@@ -5,6 +5,8 @@ namespace Drupal\redis\Cache;
 use Drupal\Core\Cache\CacheTagsChecksumInterface;
 use Drupal\Core\Cache\CacheTagsChecksumPreloadInterface;
 use Drupal\Core\Cache\CacheTagsInvalidatorInterface;
+use Drupal\Core\Cache\DatabaseCacheTagsChecksum;
+use Drupal\Core\Database\Database;
 use Drupal\redis\ClientFactory;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
@@ -34,12 +36,16 @@ class RedisCacheTagsChecksumProxy implements CacheTagsChecksumInterface, CacheTa
    *   The client factory.
    * @param \Symfony\Component\DependencyInjection\ContainerInterface|null $container
    *   The container the failover service is taken from. The proxy is built
-   *   while the container is compiled, before \Drupal has one.
+   *   while the container is compiled, before \Drupal has one. In the
+   *   bootstrap container there is none: the database checksum is built
+   *   directly there.
    */
   public function __construct(ClientFactory $factory, ?ContainerInterface $container = NULL) {
     if ($factory->useFailover()) {
-      // @phpstan-ignore-next-line
-      $this->activeService = ($container ?? \Drupal::getContainer())->get('cache_tags.invalidator.checksum.failover');
+      if (!isset($container) && \Drupal::hasContainer()) {
+        $container = \Drupal::getContainer();
+      }
+      $this->activeService = isset($container) ? $container->get('cache_tags.invalidator.checksum.failover') : new DatabaseCacheTagsChecksum(Database::getConnection());
     }
     else {
       $this->activeService = new RedisCacheTagsChecksum($factory);

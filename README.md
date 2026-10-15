@@ -248,8 +248,7 @@ needs to be configured for that.
 
 If no connection to Redis can be made, the cache bins, the lock, persistent
 lock and flood services and the cache tags checksum fall back to the database
-(or another backend) for the rest of the request. There is no failover for the
-container cache bin of the bootstrap container. Include
+(or another backend) for the rest of the request. Include
 example.failover.services.yml instead of example.services.yml and add these
 lines to settings.php:
 
@@ -267,6 +266,12 @@ can be changed:
 To change the failover of the other services, make your own version of
 example.failover.services.yml with modified *.failover service definitions, or
 override them in a site-specific services.yml file.
+
+A bootstrap_container_definition that keeps the container in Redis (see above)
+fails over too when its cache_tags_provider.container service is
+Drupal\redis\Cache\RedisCacheTagsChecksumProxy: with Redis unreachable the
+container is not cached for that request but compiled, and the checksum is
+taken from the database.
 
 ### Use persistent connections
 

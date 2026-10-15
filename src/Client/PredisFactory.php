@@ -57,8 +57,9 @@ class PredisFactory implements RedisClientFactoryInterface {
 
     // Predis connects on the first command. With failover enabled, connect
     // now, so that ClientFactory sees a failed connection while the services
-    // can still fall back.
-    if (Settings::get('redis.failover', FALSE)) {
+    // can still fall back. Not with replication, where connect() tries one
+    // replica picked at random and the command path retries the others.
+    if (Settings::get('redis.failover', FALSE) && empty($settings['replication.host'])) {
       $redis->connect();
     }
 

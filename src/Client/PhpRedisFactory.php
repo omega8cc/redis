@@ -28,9 +28,10 @@ class PhpRedisFactory implements RedisClientFactoryInterface {
     // Sentinel mode, get the real master.
     if (is_array($host)) {
       $ip_host = $this->askForMaster($redis, $settings);
-      if (is_array($ip_host)) {
-        [$host, $port] = $ip_host;
+      if (!is_array($ip_host)) {
+        throw new \RedisException('No sentinel named a master.');
       }
+      [$host, $port] = $ip_host;
     }
 
     if (!empty($settings['persistent'])) {
@@ -92,13 +93,21 @@ class PhpRedisFactory implements RedisClientFactoryInterface {
     if ($settings['instance']) {
       foreach ($settings['host'] as $sentinel) {
         [$host, $port] = explode(':', $sentinel);
-        // Prevent fatal PHP errors when one of the sentinels is down.
+        // Prevent fatal PHP errors when one of the sentinels is down, and ask
+        // the next one when this one refuses.
         set_error_handler(function () {
           return TRUE;
         });
-        // 0.5s timeout.
-        $success = $client->connect($host, $port, 0.5);
-        restore_error_handler();
+        try {
+          // 0.5s timeout.
+          $success = $client->connect($host, $port, 0.5);
+        }
+        catch (\RedisException $e) {
+          $success = FALSE;
+        }
+        finally {
+          restore_error_handler();
+        }
 
         if (!$success) {
           continue;

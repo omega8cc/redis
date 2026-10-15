@@ -5,6 +5,7 @@ namespace Drupal\redis\Cache;
 use Drupal\Component\Serialization\SerializationInterface;
 use Drupal\Core\Cache\CacheFactoryInterface;
 use Drupal\Core\Cache\CacheTagsChecksumInterface;
+use Drupal\Core\Cache\NullBackend;
 use Drupal\Core\Site\Settings;
 use Drupal\redis\ClientFactory;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -79,8 +80,17 @@ class CacheBackendFactory implements CacheFactoryInterface {
       $client = $this->clientFactory->getClient();
 
       if ($client === FALSE && Settings::get('redis.failover', FALSE)) {
-        $cache_failover = Settings::get('redis.failover.cache_service', 'cache.backend.database');
-        $this->bins[$bin] = ($this->container ?? \Drupal::getContainer())->get($cache_failover)->get($bin);
+        $container = $this->container ?? (\Drupal::hasContainer() ? \Drupal::getContainer() : NULL);
+        if (isset($container)) {
+          $cache_failover = Settings::get('redis.failover.cache_service', 'cache.backend.database');
+          $this->bins[$bin] = $container->get($cache_failover)->get($bin);
+        }
+        else {
+          // The bootstrap container, whose bin is the container cache, has
+          // no services to fail over to: the request compiles the container
+          // instead of reading it from a cache.
+          $this->bins[$bin] = new NullBackend($bin);
+        }
       }
       else {
         $class_name = $this->clientFactory->getClass(ClientFactory::REDIS_IMPL_CACHE);

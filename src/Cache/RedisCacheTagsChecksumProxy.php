@@ -4,6 +4,8 @@ namespace Drupal\redis\Cache;
 
 use Drupal\Core\Cache\CacheTagsChecksumInterface;
 use Drupal\Core\Cache\CacheTagsInvalidatorInterface;
+use Drupal\Core\Cache\DatabaseCacheTagsChecksum;
+use Drupal\Core\Database\Database;
 use Drupal\Core\Site\Settings;
 use Drupal\redis\ClientFactory;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -28,7 +30,12 @@ class RedisCacheTagsChecksumProxy implements CacheTagsChecksumInterface, CacheTa
       $client = $factory->getClient();
       // Fallback to failover service.
       if ($client === FALSE) {
-        $this->activeService = ($container ?? \Drupal::getContainer())->get('cache_tags.invalidator.checksum.failover');
+        if (!isset($container) && \Drupal::hasContainer()) {
+          $container = \Drupal::getContainer();
+        }
+        // In the bootstrap container there is no container to take the
+        // failover service from: the database checksum is built directly.
+        $this->activeService = isset($container) ? $container->get('cache_tags.invalidator.checksum.failover') : new DatabaseCacheTagsChecksum(Database::getConnection());
         return;
       }
     }
@@ -80,10 +87,14 @@ class RedisCacheTagsChecksumProxy implements CacheTagsChecksumInterface, CacheTa
    * The cache backends preload tags only when their checksum provider has
    * this method, so the proxy forwards it; Drupal 11.1 and earlier have none.
    *
-   * @param array $cache_tags
-   *   The cache tags.
+   * @param array|null $cache_tags
+   *   The cache tags. An empty list arrives as NULL on PHP 7.3, where the
+   *   backends' array_merge() with no arguments returns NULL.
    */
-  public function registerCacheTagsForPreload(array $cache_tags): void {
+  public function registerCacheTagsForPreload($cache_tags): void {
+    if (!is_array($cache_tags) || !$cache_tags) {
+      return;
+    }
     if (method_exists($this->getActiveService(), 'registerCacheTagsForPreload')) {
       $this->getActiveService()->registerCacheTagsForPreload($cache_tags);
     }

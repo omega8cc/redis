@@ -50,6 +50,6 @@ services:
     factory: ['@redis.flood.factory', get]
   flood.failover:
     class: Drupal\Core\Flood\DatabaseBackend
-    arguments: ['@database', '@request_stack']
+    arguments: ['@database', '@request_stack', '@datetime.time']
     tags:
       - { name: backend_overridable }

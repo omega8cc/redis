@@ -73,4 +73,19 @@ class RedisCacheTagsChecksumProxy implements CacheTagsChecksumInterface, CacheTa
     return $this->getActiveService()->invalidateTags($tags);
   }
 
+  /**
+   * Registers cache tags to load with the next checksum lookup.
+   *
+   * The cache backends preload tags only when their checksum provider has
+   * this method, so the proxy forwards it; Drupal 11.1 and earlier have none.
+   *
+   * @param array $cache_tags
+   *   The cache tags.
+   */
+  public function registerCacheTagsForPreload(array $cache_tags): void {
+    if (method_exists($this->getActiveService(), 'registerCacheTagsForPreload')) {
+      $this->getActiveService()->registerCacheTagsForPreload($cache_tags);
+    }
+  }
+
 }

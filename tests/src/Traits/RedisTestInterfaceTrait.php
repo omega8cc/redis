@@ -2,6 +2,7 @@
 
 namespace Drupal\Tests\redis\Traits;
 
+use Drupal\Core\DependencyInjection\YamlFileLoader;
 use Drupal\Core\Site\Settings;
 use Symfony\Component\DependencyInjection\Reference;
 
@@ -37,6 +38,16 @@ trait RedisTestInterfaceTrait {
     $settings['redis.failover'] = TRUE;
 
     new Settings($settings);
+  }
+
+  /**
+   * Loads the module's example.failover.services.yml into the container.
+   *
+   * @param \Drupal\Core\DependencyInjection\ContainerBuilder $container
+   *   The container being built.
+   */
+  public function setUpFailoverServices($container) {
+    (new YamlFileLoader($container))->load(dirname(__DIR__, 3) . '/example.failover.services.yml');
   }
 
   /**

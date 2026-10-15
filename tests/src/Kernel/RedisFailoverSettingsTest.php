@@ -33,11 +33,17 @@ class RedisFailoverSettingsTest extends KernelTestBase {
    */
   public function register(ContainerBuilder $container): void {
     self::setUpFailoverSettings(str_ends_with($this->name(), 'Override'));
+    $settings = Settings::getAll();
     if (str_ends_with($this->name(), 'Override')) {
-      $settings = Settings::getAll();
       $settings['redis.failover.cache_service'] = 'cache.backend.php';
-      new Settings($settings);
     }
+    else {
+      // Refused at once, with no name to resolve: without failover the
+      // connection error is all this test expects.
+      $settings['redis.connection']['host'] = '127.0.0.1';
+      $settings['redis.connection']['port'] = 1;
+    }
+    new Settings($settings);
     parent::register($container);
   }
 

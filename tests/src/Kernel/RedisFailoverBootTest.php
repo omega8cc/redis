@@ -5,6 +5,7 @@ namespace Drupal\Tests\redis\Kernel;
 use Drupal\Component\Serialization\PhpSerialize;
 use Drupal\Core\Cache\DatabaseBackend;
 use Drupal\Core\Cache\DatabaseCacheTagsChecksum;
+use Drupal\Core\Cache\MemoryBackendFactory;
 use Drupal\Core\Cache\NullBackend;
 use Drupal\Core\DependencyInjection\ContainerBuilder;
 use Drupal\KernelTests\KernelTestBase;
@@ -51,6 +52,9 @@ class RedisFailoverBootTest extends KernelTestBase {
    * Tests that a bin built during the compile fails over to the database.
    */
   public function testCompile(): void {
+    if ($this->container->get('cache_factory') instanceof MemoryBackendFactory) {
+      $this->markTestSkipped("This core's kernel tests keep every bin in memory.");
+    }
     $this->assertInstanceOf(DatabaseBackend::class, $this->container->get('cache.bootstrap'));
   }
 

@@ -34,10 +34,15 @@ class PhpRedisFactory implements RedisClientFactoryInterface {
     }
 
     if (!empty($settings['persistent'])) {
-      $redis->pconnect($host, $port);
+      $connected = $redis->pconnect($host, $port);
     }
     else {
-      $redis->connect($host, $port);
+      $connected = $redis->connect($host, $port);
+    }
+    // PhpRedis throws on most connection failures but can also return FALSE,
+    // ClientFactory needs an exception to fail over.
+    if (!$connected) {
+      throw new \RedisException('Could not connect to Redis.');
     }
 
     if (isset($settings['password'])) {

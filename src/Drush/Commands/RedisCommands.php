@@ -12,6 +12,7 @@ use Drupal\Core\Datetime\DateFormatterInterface;
 use Drupal\Core\StringTranslation\ByteSizeMarkup;
 use Drupal\Core\Url;
 use Drupal\redis\Cache\RedisCacheTagsChecksum;
+use Drupal\redis\Cache\RedisCacheTagsChecksumProxy;
 use Drupal\redis\ClientFactory;
 use Drupal\redis\ClientInterface;
 use Drupal\redis\RedisPrefixTrait;
@@ -332,7 +333,7 @@ final class RedisCommands extends DrushCommands {
     $cache_tags_table = new RowsOfFields(array_slice($cache_tags, 0, $options['results']));
     $formatter_manager->write($this->output(), 'table', $cache_tags_table, $table_formatter_options);
 
-    if (!$cache_tags && !$this->cacheTagsChecksum instanceof RedisCacheTagsChecksum) {
+    if (!$cache_tags && !($this->cacheTagsChecksum instanceof RedisCacheTagsChecksum || $this->cacheTagsChecksum instanceof RedisCacheTagsChecksumProxy)) {
       $this->logger()->warning(dt('No cache tags found, make sure that the redis cache tag checksum service is used. See example.services.yml on root of this module.'));
     }
 

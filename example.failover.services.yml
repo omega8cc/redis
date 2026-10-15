@@ -1,0 +1,58 @@
+# This file contains example services overrides with a failover.
+#
+# Use it instead of example.services.yml, with these lines in settings.php:
+#   $settings['container_yamls'][] = 'modules/contrib/redis/example.failover.services.yml';
+#   $settings['redis.failover'] = TRUE;
+#
+# Or copy & paste the desired services into sites/default/services.yml.
+#
+# When no connection to Redis can be made, each service below uses its
+# *.failover counterpart for the rest of the request. There is no failover
+# for the container cache bin of the bootstrap container.
+#
+# Note that the redis module must be enabled for this to work.
+
+services:
+  # Cache tag checksum backend. Used by redis and most other cache backend
+  # to deal with cache tag invalidations.
+  cache_tags.invalidator.checksum:
+    class: Drupal\redis\Cache\RedisCacheTagsChecksumProxy
+    arguments: ['@redis.factory']
+    tags:
+      - { name: cache_tags_invalidator }
+  cache_tags.invalidator.checksum.failover:
+    class: Drupal\Core\Cache\DatabaseCacheTagsChecksum
+    arguments: ['@database']
+    tags:
+      - { name: backend_overridable }
+
+  # Replaces the default lock backend with a redis implementation.
+  lock:
+    class: Drupal\Core\Lock\LockBackendInterface
+    factory: ['@redis.lock.factory', get]
+  lock.failover:
+    class: Drupal\Core\Lock\DatabaseLockBackend
+    arguments: ['@database']
+    tags:
+      - { name: backend_overridable }
+
+  # Replaces the default persistent lock backend with a redis implementation.
+  lock.persistent:
+    class: Drupal\Core\Lock\LockBackendInterface
+    factory: ['@redis.lock.factory', get]
+    arguments: [true]
+  lock.persistent.failover:
+    class: Drupal\Core\Lock\PersistentDatabaseLockBackend
+    arguments: ['@database']
+    tags:
+      - { name: backend_overridable }
+
+  # Replaces the default flood backend with a redis implementation.
+  flood:
+    class: Drupal\Core\Flood\FloodInterface
+    factory: ['@redis.flood.factory', get]
+  flood.failover:
+    class: Drupal\Core\Flood\DatabaseBackend
+    arguments: ['@database', '@request_stack', '@datetime.time']
+    tags:
+      - { name: backend_overridable }

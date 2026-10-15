@@ -2,6 +2,7 @@
 
 namespace Drupal\redis\Client;
 
+use Drupal\Core\Site\Settings;
 use Drupal\redis\ClientInterface;
 use Predis\Client;
 
@@ -52,6 +53,13 @@ class PredisFactory implements RedisClientFactoryInterface {
     }
     else {
       $redis = new Client($settings);
+    }
+
+    // Predis connects on the first command. With failover enabled, connect
+    // now, so that ClientFactory sees a failed connection while the services
+    // can still fall back.
+    if (Settings::get('redis.failover', FALSE)) {
+      $redis->connect();
     }
 
     return new Predis($redis);

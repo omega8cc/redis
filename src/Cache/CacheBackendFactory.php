@@ -5,6 +5,7 @@ namespace Drupal\redis\Cache;
 use Drupal\Component\Serialization\SerializationInterface;
 use Drupal\Core\Cache\CacheFactoryInterface;
 use Drupal\Core\Cache\CacheTagsChecksumInterface;
+use Drupal\Core\Site\Settings;
 use Drupal\redis\ClientFactory;
 
 /**
@@ -31,7 +32,17 @@ class CacheBackendFactory implements CacheFactoryInterface {
    */
   public function get($bin) {
     if (!isset($this->bins[$bin])) {
-      $this->bins[$bin] = new RedisBackend($bin, $this->clientFactory->getClient(), $this->checksumProvider, $this->serializer);
+      if ($this->clientFactory->useFailover()) {
+        // Redis is down: use the failover cache backend for this request.
+        // There is no failover for the bootstrap container, which has no
+        // container to look the service up in.
+        $failover_service = Settings::get('redis.failover.cache_service', 'cache.backend.database');
+        // @phpstan-ignore-next-line
+        $this->bins[$bin] = \Drupal::service($failover_service)->get($bin);
+      }
+      else {
+        $this->bins[$bin] = new RedisBackend($bin, $this->clientFactory->getClient(), $this->checksumProvider, $this->serializer);
+      }
     }
     return $this->bins[$bin];
   }

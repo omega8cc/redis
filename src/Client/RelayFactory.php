@@ -34,10 +34,14 @@ class RelayFactory implements RedisClientFactoryInterface {
     }
 
     if (!empty($settings['persistent'])) {
-      $relay->pconnect($host, $port);
+      $connected = $relay->pconnect($host, $port);
     }
     else {
-      $relay->connect($host, $port);
+      $connected = $relay->connect($host, $port);
+    }
+    // ClientFactory needs an exception to fail over, not a FALSE return.
+    if (!$connected) {
+      throw new \RuntimeException('Could not connect to Redis.');
     }
 
     if (isset($settings['password'])) {

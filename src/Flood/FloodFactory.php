@@ -20,6 +20,10 @@ class FloodFactory {
    *   Return flood instance.
    */
   public function get() {
+    if ($this->clientFactory->useFailover()) {
+      // @phpstan-ignore-next-line
+      return \Drupal::service('flood.failover');
+    }
     return new RedisFloodBackend($this->clientFactory, $this->requestStack);
   }
 }

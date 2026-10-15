@@ -25,6 +25,10 @@ class LockFactory {
    *   Return lock backend instance.
    */
   public function get($persistent = FALSE) {
+    if ($this->clientFactory->useFailover()) {
+      // @phpstan-ignore-next-line
+      return \Drupal::service($persistent ? 'lock.persistent.failover' : 'lock.failover');
+    }
     return new RedisLock($this->clientFactory, $persistent);
   }
 }

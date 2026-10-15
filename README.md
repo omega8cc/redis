@@ -244,6 +244,30 @@ needs to be configured for that.
       ],
     ];
 
+### Use other backends as failover
+
+If no connection to Redis can be made, the cache bins, the lock, persistent
+lock and flood services and the cache tags checksum fall back to the database
+(or another backend) for the rest of the request. There is no failover for the
+container cache bin of the bootstrap container. Include
+example.failover.services.yml instead of example.services.yml and add these
+lines to settings.php:
+
+    # Use failover services when Redis is not available.
+    $settings['container_yamls'][] = 'modules/contrib/redis/example.failover.services.yml';
+    $settings['redis.failover'] = TRUE;
+
+Cache bins fall back to the 'cache.backend.database' service by default, which
+can be changed:
+
+    # Use another cache backend as failover, in this case PHP file-based caching.
+    # NOTE: This is only an example, and not a recommended configuration.
+    $settings['redis.failover.cache_service'] = 'cache.backend.php';
+
+To change the failover of the other services, make your own version of
+example.failover.services.yml with modified *.failover service definitions, or
+override them in a site-specific services.yml file.
+
 ### Use persistent connections
 
 This mode needs the following setting:

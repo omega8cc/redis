@@ -186,14 +186,28 @@ class ClientFactory {
       // Do not wait for another connection attempt in this request.
       throw new \RuntimeException('The connection to Redis failed earlier in this request.');
     }
+    $failover = Settings::get('redis.failover', FALSE);
+    if ($failover) {
+      // A failed connection is answered by the failover services, and the
+      // exception names the reason: the warning PhpRedis also raises (for a
+      // host name that does not resolve) would only log once per request.
+      set_error_handler(static function () {
+        return TRUE;
+      }, E_WARNING);
+    }
     try {
       return $client_factory->getClient($settings);
     }
     catch (\Exception $e) {
-      if (Settings::get('redis.failover', FALSE)) {
+      if ($failover) {
         static::$connectionFailed = TRUE;
       }
       throw $e;
+    }
+    finally {
+      if ($failover) {
+        restore_error_handler();
+      }
     }
   }
 

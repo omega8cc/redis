@@ -35,7 +35,7 @@ class RedisFloodFailoverTest extends KernelTestBase {
     $container->register('flood', FloodInterface::class)
       ->setFactory([new Reference('redis.flood.factory'), 'get']);
     $container->register('flood.failover', DatabaseBackend::class)
-      ->setArguments([new Reference('database'), new Reference('request_stack')]);
+      ->setArguments([new Reference('database'), new Reference('request_stack'), new Reference('datetime.time')]);
   }
 
   /**

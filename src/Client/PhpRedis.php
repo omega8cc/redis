@@ -25,6 +25,15 @@ class PhpRedis implements ClientInterface {
       }
     }
 
+    $failover = Settings::get('redis.failover', FALSE);
+    if ($failover) {
+      // A failed connection is answered by the failover services: the
+      // warning PhpRedis also raises (for a host name that does not resolve)
+      // would only log once per request.
+      set_error_handler(static function () {
+        return TRUE;
+      }, E_WARNING);
+    }
     try {
       if ($persistent) {
         $client->pconnect($host, $port);
@@ -34,11 +43,16 @@ class PhpRedis implements ClientInterface {
       }
     }
     catch (\RedisException $e) {
-      if (Settings::get('redis.failover', FALSE)) {
+      if ($failover) {
         return FALSE;
       }
 
       throw $e;
+    }
+    finally {
+      if ($failover) {
+        restore_error_handler();
+      }
     }
 
     if (isset($password)) {

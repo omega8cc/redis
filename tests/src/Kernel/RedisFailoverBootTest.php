@@ -9,6 +9,7 @@ use Drupal\KernelTests\KernelTestBase;
 use Drupal\redis\Cache\CacheBackendFactory;
 use Drupal\redis\Cache\RedisCacheTagsChecksumProxy;
 use Drupal\Tests\redis\Traits\RedisTestInterfaceTrait;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 
 /**
@@ -17,6 +18,7 @@ use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
  * @group redis
  * @runTestsInSeparateProcesses
  */
+#[Group('redis')]
 #[RunTestsInSeparateProcesses]
 class RedisFailoverBootTest extends KernelTestBase {
 

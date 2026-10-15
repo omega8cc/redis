@@ -5,6 +5,7 @@ namespace Drupal\Tests\redis\Kernel;
 use Drupal\Core\DependencyInjection\ContainerBuilder;
 use Drupal\KernelTests\KernelTestBase;
 use Drupal\Tests\redis\Traits\RedisTestInterfaceTrait;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 
 /**
@@ -13,6 +14,7 @@ use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
  * @group redis
  * @runTestsInSeparateProcesses
  */
+#[Group('redis')]
 #[RunTestsInSeparateProcesses]
 class RedisFailoverServicesTest extends KernelTestBase {
 

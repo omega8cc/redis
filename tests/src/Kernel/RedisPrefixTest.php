@@ -5,6 +5,7 @@ namespace Drupal\Tests\redis\Kernel;
 use Drupal\Core\Database\Database;
 use Drupal\KernelTests\KernelTestBase;
 use Drupal\redis\RedisPrefixTrait;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 
 /**
@@ -18,6 +19,7 @@ use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
  * @group redis
  * @runTestsInSeparateProcesses
  */
+#[Group('redis')]
 #[RunTestsInSeparateProcesses]
 class RedisPrefixTest extends KernelTestBase {
 

@@ -7,6 +7,7 @@ use Drupal\Core\Cache\CacheFactoryInterface;
 use Drupal\Core\Cache\CacheTagsChecksumInterface;
 use Drupal\Core\Site\Settings;
 use Drupal\redis\ClientFactory;
+use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
  * A cache backend factory responsible for the construction of redis cache bins.
@@ -44,17 +45,30 @@ class CacheBackendFactory implements CacheFactoryInterface {
   protected $bins = [];
 
   /**
+   * The container the failover services are taken from, if given.
+   *
+   * Services are built while the container is compiled, before \Drupal has
+   * one; the bootstrap container gives none.
+   *
+   * @var \Symfony\Component\DependencyInjection\ContainerInterface|null
+   */
+  protected $container;
+
+  /**
    * Creates a redis CacheBackendFactory.
    *
    * @param \Drupal\redis\ClientFactory $client_factory
    * @param \Drupal\Core\Cache\CacheTagsChecksumInterface $checksum_provider
    * @param \Drupal\redis\Cache\SerializationInterface $serializer
    *   The serialization class to use.
+   * @param \Symfony\Component\DependencyInjection\ContainerInterface|null $container
+   *   The container the failover cache service is taken from.
    */
-  public function __construct(ClientFactory $client_factory, CacheTagsChecksumInterface $checksum_provider, SerializationInterface $serializer) {
+  public function __construct(ClientFactory $client_factory, CacheTagsChecksumInterface $checksum_provider, SerializationInterface $serializer, ?ContainerInterface $container = NULL) {
     $this->clientFactory = $client_factory;
     $this->checksumProvider = $checksum_provider;
     $this->serializer = $serializer;
+    $this->container = $container;
   }
 
   /**
@@ -66,7 +80,7 @@ class CacheBackendFactory implements CacheFactoryInterface {
 
       if ($client === FALSE && Settings::get('redis.failover', FALSE)) {
         $cache_failover = Settings::get('redis.failover.cache_service', 'cache.backend.database');
-        $this->bins[$bin] = \Drupal::service($cache_failover)->get($bin);
+        $this->bins[$bin] = ($this->container ?? \Drupal::getContainer())->get($cache_failover)->get($bin);
       }
       else {
         $class_name = $this->clientFactory->getClass(ClientFactory::REDIS_IMPL_CACHE);

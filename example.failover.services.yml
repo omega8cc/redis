@@ -12,7 +12,7 @@ services:
   # to deal with cache tag invalidations.
   cache_tags.invalidator.checksum:
    class: Drupal\redis\Cache\RedisCacheTagsChecksumProxy
-   arguments: ['@redis.factory']
+   arguments: ['@redis.factory', '@service_container']
    tags:
      - { name: cache_tags_invalidator }
   cache_tags.invalidator.checksum.failover:

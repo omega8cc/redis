@@ -37,6 +37,10 @@ class RedisFailoverSettingsTest extends KernelTestBase {
     if (str_ends_with($this->name(), 'Override')) {
       $settings['redis.failover.cache_service'] = 'cache.backend.php';
     }
+    elseif (str_ends_with($this->name(), 'WithoutInstance')) {
+      $settings['redis.connection']['host'] = ['127.0.0.1:1'];
+      $settings['redis.failover'] = TRUE;
+    }
     else {
       // Refused at once, with no name to resolve: without failover the
       // connection error is all this test expects.
@@ -52,6 +56,14 @@ class RedisFailoverSettingsTest extends KernelTestBase {
    */
   public function testCacheServiceOverride(): void {
     $this->assertInstanceOf(PhpBackend::class, $this->container->get('cache.backend.redis')->get('testing'));
+  }
+
+  /**
+   * Tests that sentinel hosts without an instance name are not a failover.
+   */
+  public function testSentinelWithoutInstance(): void {
+    $this->expectException(\InvalidArgumentException::class);
+    $this->container->get('redis.factory')->useFailover();
   }
 
   /**

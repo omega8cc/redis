@@ -110,6 +110,13 @@ class ClientFactory {
         }
       }
 
+      // Sentinel mode (an array of hosts) needs the master's instance name:
+      // without it no sentinel names a master. A configuration error, never a
+      // reason to fail over.
+      if (is_array($settings['host']) && empty($settings['instance'])) {
+        throw new \InvalidArgumentException('Sentinel hosts need the instance setting.');
+      }
+
       // For early bootstrap container, the client factories aren't initialized
       // yet.
       if (empty($this->factories)) {

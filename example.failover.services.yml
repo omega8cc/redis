@@ -7,8 +7,9 @@
 # Or copy & paste the desired services into sites/default/services.yml.
 #
 # When no connection to Redis can be made, each service below uses its
-# *.failover counterpart for the rest of the request. There is no failover
-# for the container cache bin of the bootstrap container.
+# *.failover counterpart for the rest of the request. A bootstrap container
+# that keeps the container in Redis fails over too when its
+# cache_tags_provider.container service is the proxy (see README.md).
 #
 # Note that the redis module must be enabled for this to work.
 
